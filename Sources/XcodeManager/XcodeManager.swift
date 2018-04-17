@@ -32,6 +32,8 @@ import Foundation
 import SwiftyJSON
 
 public class XcodeManager {
+    public init() {}
+    
     /// 缓存用
     fileprivate var _cacheProjet: JSON = JSON()
     fileprivate var _hashTag: Int = Int()
@@ -43,6 +45,7 @@ public class XcodeManager {
     fileprivate var _rootObjectUUID: String = String()
     /// 初始化就获取到的工程名称
     fileprivate var _currentProjectName: String = String()
+    
     
     /// 解析工程文件,初始化入口
     public func initProject(_ filePath: String) -> XcodeManager {
