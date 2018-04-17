@@ -46,6 +46,11 @@ public class XcodeManager {
     /// 初始化就获取到的工程名称
     fileprivate var _currentProjectName: String = String()
     
+    public enum CodeSignStyleType: String{
+        public typealias RawValue = String
+        case automatic = "Automatic"
+        case manual = "Manual"
+    }
     
     /// 解析工程文件,初始化入口
     public func initProject(_ filePath: String) -> XcodeManager {
@@ -770,8 +775,8 @@ public class XcodeManager {
             let isa = dict["isa"].string ?? String()
             if (isa == "XCBuildConfiguration") {
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let PRODUCT_NAME = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (!PRODUCT_NAME.isEmpty) {
+                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                if (!PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
                     // 回写
                     buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleid)
                     dict["buildSettings"] = JSON(buildSettings)
@@ -784,6 +789,50 @@ public class XcodeManager {
     }
     
     
+    /// 更改项目自动手动签名设置
+    public func updateCodeSignStyle(type: CodeSignStyleType) {
+        
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        for element in objects {
+            var dict = element.value
+            let isa = dict["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                let CODE_SIGN_STYLE = buildSettings["CODE_SIGN_STYLE"]?.string ?? String()
+                if (!CODE_SIGN_STYLE.isEmpty) {
+                    // 回写
+                    buildSettings["CODE_SIGN_STYLE"] = JSON(type.rawValue)
+                    dict["buildSettings"] = JSON(buildSettings)
+                    let uuidKey = element.key
+                    objects[uuidKey] = JSON(dict)
+                }
+            }
+        }
+        
+        let rootObj = objects[self._rootObjectUUID]?.dictionary ?? Dictionary<String, JSON>()
+        var attributes = rootObj["attributes"]?.dictionary ?? Dictionary<String, JSON>()
+        var targetAttributes = attributes["TargetAttributes"]?.dictionary ?? Dictionary<String, JSON>()
+        var newTargetAttributes = Dictionary<String, JSON>()
+        
+        for attribute in targetAttributes {
+            var singleAttribute = targetAttributes[attribute.key]?.dictionary ?? Dictionary<String, JSON>()
+            for att in singleAttribute {
+                if (att.key == "ProvisioningStyle") {
+                    singleAttribute[att.key] = JSON(type.rawValue)
+                    newTargetAttributes[attribute.key] = JSON(singleAttribute)
+                }
+            }
+        }
+        
+        if (!newTargetAttributes.isEmpty) {
+            // 回写
+            objects[self._rootObjectUUID]!["attributes"]["TargetAttributes"] = JSON(newTargetAttributes)
+        }
+        
+        self._cacheProjet["objects"] = JSON(objects)
+    }
+    
+    
     /// 全部操作完毕,保存至文件
     public func save() -> Bool {
         let dict = _cacheProjet.dictionaryObject ?? Dictionary()
@@ -791,6 +840,7 @@ public class XcodeManager {
             print("保存失败!")
             return false
         }
+        
         
         var fileUrl = URL(fileURLWithPath: _filePath)
         if fileUrl.pathExtension == "xcodeproj" {
