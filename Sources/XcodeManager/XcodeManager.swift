@@ -333,7 +333,7 @@ public struct XcodeManager {
         
         // 写入当前的路径到LibrarySearchPath
         let newPath = staticLibraryFilePath.replacingOccurrences(of: staticLibraryFilePath.split(separator: "/").last ?? "", with: "")
-        self.addNewLibrarySearchPathValue(newPath: newPath)
+        self.addNewLibrarySearchPathValue(newPath)
     }
     
     
@@ -404,7 +404,7 @@ public struct XcodeManager {
         
         // 写入当前的路径到FrameworkSearchPath
         let newPath = frameworkFilePath.replacingOccurrences(of: frameworkFilePath.split(separator: "/").last ?? "", with: "")
-        self.addNewFrameworkSearchPathValue(newPath: newPath)
+        self.addNewFrameworkSearchPathValue(newPath)
     }
     
     /// Add folder to project
