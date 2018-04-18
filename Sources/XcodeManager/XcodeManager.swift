@@ -31,20 +31,21 @@
 import Foundation
 import SwiftyJSON
 
-public class XcodeManager {
-    public init() {}
+public struct XcodeManager {
     
-    /// 缓存用
+    /// cache in memory
     fileprivate var _cacheProjet: JSON = JSON()
     fileprivate var _hashTag: Int = Int()
     fileprivate var _filePath: String = String()
     
-    /// 主要分组的UUID
+    /// main group UUID
     fileprivate var _mainGroupUUID: String = String()
-    /// Node根路径的rootObject UUID
+    /// root object uuid in root node
     fileprivate var _rootObjectUUID: String = String()
-    /// 初始化就获取到的工程名称
+    /// current project name
     fileprivate var _currentProjectName: String = String()
+    
+    fileprivate var _isPrintLog = true
     
     public enum CodeSignStyleType: String{
         public typealias RawValue = String
@@ -52,16 +53,22 @@ public class XcodeManager {
         case manual = "Manual"
     }
     
-    /// 解析工程文件,初始化入口
-    public func initProject(_ filePath: String) -> XcodeManager {
-        _ = self.parseProject(filePath)
-        return self
+    fileprivate enum XcodeManagerLogType: String {
+        case debug = "XcodeManagerDebug"
+        case info = "XcodeManagerInfo"
+        case error = "XcodeManagerError"
     }
     
+    public init(projectFile: String, printLog: Bool = true) {
+        self._filePath = projectFile
+        self._isPrintLog = printLog
+        _ = self.parseProject(self._filePath)
+    }
     
-    fileprivate func parseProject(_ filePath: String) -> JSON {
+    /// parseProjectFile
+    fileprivate mutating func parseProject(_ filePath: String) -> JSON {
         if (!FileManager.default.fileExists(atPath: filePath)) {
-            print("指定项目文件不存在!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return JSON()
         }
         
@@ -96,22 +103,19 @@ public class XcodeManager {
             }
             return self._cacheProjet
         } catch {
-            print("read project file failed. error: \(error.localizedDescription)")
+            xcodeManagerPrintLog("read project file failed. error: \(error.localizedDescription)", type: .error)
             return JSON()
         }
     }
     
     
-    /// 将数据内容生成为工程文件
-    ///
-    /// - Parameters:
-    ///   - fileURL: 工程文件路径
-    ///   - list: 数据对象
+    /// 将数据内容生成为工程文件,反存储
     fileprivate func saveProject(fileURL: URL, withPropertyList list: Any) -> Bool{
-        var url = fileURL
+        let url = fileURL
+        
         func handleEncode(fileURL: URL) -> Bool {
             func encodeString(_ str: String) -> String {
-                var result = ""
+                var result = String()
                 for scalar in str.unicodeScalars {
                     if scalar.value > 0x4e00 && scalar.value < 0x9fff {
                         result += String(format: "&#%04d;", scalar.value)
@@ -127,7 +131,7 @@ public class XcodeManager {
                 try txt.write(to: fileURL, atomically: true, encoding: .utf8)
                 return true
             } catch {
-                print("translate chinese characters to mathematical symbols error: \(error.localizedDescription)")
+                xcodeManagerPrintLog("translate chinese characters to mathematical symbols error: \(error.localizedDescription)", type: .error)
                 return false
             }
         }
@@ -137,13 +141,13 @@ public class XcodeManager {
             try data.write(to: url, options: .atomic)
             return handleEncode(fileURL: url)
         } catch {
-            print("save project file failed: \(error.localizedDescription)")
+            xcodeManagerPrintLog("save project file failed: \(error.localizedDescription)", type: .error)
             return false
         }
     }
     
     
-    /// 获取objects所有的uuid(key)
+    /// get all objects uuids
     fileprivate func allUuids(_ projectDict: JSON) -> Array<String> {
         let objects = projectDict["objects"].dictionaryObject ?? Dictionary()
         
@@ -161,15 +165,14 @@ public class XcodeManager {
     }
     
     
-    /// 生成不会和现有工程重复存在的uuid
+    /// generate new uuid (not repeat)
     fileprivate func generateUuid() -> String {
         if (_cacheProjet.isEmpty) {
-            // 缓存为空!!
-            print("请使用'initProject'初始化工程后再调用!")
+            // cache empty!
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return String()
         }
         
-        // 缓存不为空!
         let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "").suffix(24).uppercased()
         let array = self.allUuids(_cacheProjet)
         if (array.index(of: uuid) ?? -1 >= 0) {
@@ -179,12 +182,14 @@ public class XcodeManager {
     }
     
     
-    /// 在项目根节点生成pbx分组并挂载写入缓存
-    ///  - 返回最终挂载在mainGroup的uuid
-    fileprivate func generatePBXGroup(name: String) -> (String) {
+    /// in project root node generate the 'PBX' group, mount and write in memory cache
+    ///
+    /// - Parameter name: needed generate the 'PBX' group
+    /// - Returns: return a new uuid with added 'PBX' group
+    fileprivate mutating func generatePBXGroup(name: String) -> String {
         if (name.isEmpty) {
-            print("请检查传入的name!")
-            return ""
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            return String()
         }
         let newUUID = self.generateUuid()
         let newDict = [
@@ -196,17 +201,13 @@ public class XcodeManager {
             ] as [String : Any]
         self._cacheProjet["objects"][newUUID] = JSON(newDict)
         
-        
-        // 挂载根节点
         var mainGroupObj = self._cacheProjet["objects"][self._mainGroupUUID]
         var mainGroupObjChildren = mainGroupObj["children"].arrayObject ?? Array()
         if (mainGroupObjChildren.isEmpty) {
-            /// 一般工程不会为空,最起码有两个childrens
-            print("解析mainGroupObj错误!")
-            return ""
+            xcodeManagerPrintLog("Parsed mainGroup object wrong!", type: .error)
+            return String()
         }
         
-        /// 回写
         mainGroupObjChildren.append(newUUID)
         mainGroupObj["children"] = JSON(mainGroupObjChildren)
         self._cacheProjet["objects"][self._mainGroupUUID] = mainGroupObj
@@ -214,8 +215,8 @@ public class XcodeManager {
         return newUUID
     }
     
-    /// 检测文件类型,只返回Xcode支持的类型,其他为unknown
-    fileprivate func detectLastType(path: String) -> String {
+    /// detection file type
+    fileprivate mutating func detectLastType(path: String) -> String {
         if (path.isEmpty) {
             return "unknown"
         }
@@ -225,7 +226,6 @@ public class XcodeManager {
             return "unknown"
         }
         
-        // 按照平时使用频率排序过了,提高遍历效率
         let regexsKeyValue = [
             ".xib": "file.xib",
             ".plist": "text.plist.xml",
@@ -266,15 +266,17 @@ public class XcodeManager {
     }
     
     
-    /// 添加静态库,传入绝对路径
-    public func addStaticLibrary(staticLibraryFilePath: String) {
+    /// Add static library to project
+    ///
+    /// - Parameter staticLibraryFilePath: static lib file path
+    public mutating func addStaticLibraryToProject(staticLibraryFilePath: String) {
         if (self._cacheProjet.isEmpty) {
-            print("请使用'initProject'初始化工程后再调用!")
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
         }
         
         if (staticLibraryFilePath.isEmpty || !FileManager.default.fileExists(atPath: staticLibraryFilePath)) {
-            print("请检查传入的静态库路径是否正确!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         
@@ -288,13 +290,14 @@ public class XcodeManager {
         
         var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                print("当前选择的已经添加过了!")
+                xcodeManagerPrintLog("current object is existing")
                 return
             }
         }
@@ -331,41 +334,20 @@ public class XcodeManager {
         // 写入当前的路径到LibrarySearchPath
         let newPath = staticLibraryFilePath.replacingOccurrences(of: staticLibraryFilePath.split(separator: "/").last ?? "", with: "")
         self.addNewLibrarySearchPathValue(newPath: newPath)
-        
-        /* 添加到Xcode做左边显示的区域
-         /// 在_mainGroup中创建的
-         let newPbxObjUUID = generatePBXGroup(name: "Modules")
-         
-         /// 更新当前变量
-         objects = _cacheProjet["objects"].dictionary ?? Dictionary()
-         
-         var newPbxObj = objects[newPbxObjUUID]?.dictionary ?? Dictionary()
-         if (newPbxObj.isEmpty) {
-         print("解析新建obj错误!")
-         return
-         }
-         
-         var newPbxObjChild = newPbxObj["children"]?.array ?? Array()
-         newPbxObjChild.append(JSON(PBXBuildFileUUID))
-         newPbxObj["children"] = JSON(newPbxObjChild)
-         
-         objects[newPbxObjUUID] = JSON(newPbxObj)
-         
-         // 回写缓存
-         self._cacheProjet["objects"] = JSON(objects)
-         */
     }
     
     
-    /// 添加framework,传入绝对路径
-    public func addFramework(frameworkFilePath: String) {
+    /// Add framework to project
+    ///
+    /// - Parameter frameworkFilePath: framework path
+    public mutating func addFrameworkToProject(frameworkFilePath: String) {
         if (self._cacheProjet.isEmpty) {
-            print("请使用'initProject'初始化工程后再调用!")
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
         }
         
         if (frameworkFilePath.isEmpty || !FileManager.default.fileExists(atPath: frameworkFilePath)) {
-            print("请检查传入的静态库路径是否正确!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         
@@ -379,13 +361,13 @@ public class XcodeManager {
         
         var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
         }
         
-        /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                print("当前选择的已经添加过了!")
+                xcodeManagerPrintLog("current object is existing")
                 return
             }
         }
@@ -425,16 +407,17 @@ public class XcodeManager {
         self.addNewFrameworkSearchPathValue(newPath: newPath)
     }
     
-    
-    /// 添加资源引用文件夹,传入参数为文件夹路径
-    public func addFolder(folderFilePath: String) {
+    /// Add folder to project
+    ///
+    /// - Parameter folderPath: folder path
+    public mutating func addFolderToProject(folderPath: String) {
         if (self._cacheProjet.isEmpty) {
-            print("请使用'initProject'初始化工程后再调用!")
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
         }
         
-        if (folderFilePath.isEmpty || !FileManager.default.fileExists(atPath: folderFilePath)) {
-            print("请检查传入的静态库路径是否正确!")
+        if (folderPath.isEmpty || !FileManager.default.fileExists(atPath: folderPath)) {
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         
@@ -443,18 +426,19 @@ public class XcodeManager {
         dict["isa"] = "PBXFileReference"
         dict["lastKnownFileType"] = "folder"
         dict["sourceTree"] = "<group>"
-        dict["name"] = folderFilePath.split(separator: "/").last ?? folderFilePath
-        dict["path"] = folderFilePath
+        dict["name"] = folderPath.split(separator: "/").last ?? folderPath
+        dict["path"] = folderPath
         
         var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                print("当前选择的已经添加过了!")
+                xcodeManagerPrintLog("current object is existing")
                 return
             }
         }
@@ -489,15 +473,17 @@ public class XcodeManager {
     }
     
     
-    /// 添加资源引用文件(bundle,js,xml,html,.png) (Copy Bundle Rsources),传入参数为文件路径
-    public func addFileToProject(filePath: String) {
+    /// Add resources file to Project (Copy Bundle Rsources)
+    ///
+    /// - Parameter filePath: resources file
+    public mutating func addFileToProject(filePath: String) {
         if (self._cacheProjet.isEmpty) {
-            print("请使用'initProject'初始化工程后再调用!")
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
         }
         
         if (filePath.isEmpty || !FileManager.default.fileExists(atPath: filePath)) {
-            print("请检查传入的路径是否正确!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         
@@ -511,13 +497,14 @@ public class XcodeManager {
         
         var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                print("当前选择的已经添加过了!")
+                xcodeManagerPrintLog("current object is existing")
                 return
             }
         }
@@ -552,16 +539,24 @@ public class XcodeManager {
     }
     
     
-    /// 添加新的值到项目的Framework Search Paths 所有scheme都添加
-    public func addNewFrameworkSearchPathValue(newPath: String) {
+    /// Add FrameworkSearchPath Value
+    ///
+    /// - Parameter newPath: path
+    public mutating func addNewFrameworkSearchPathValue(newPath: String) {
+        
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return
+        }
+        
         if (newPath.isEmpty) {
-            print("参数不可为空!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            print("解析objects失败!")
+            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
         }
         
@@ -589,7 +584,7 @@ public class XcodeManager {
                     let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
-                        print("要添加的和已经存在的一致!忽略添加!")
+                        xcodeManagerPrintLog("current object is existing", type: .info)
                         continue
                     }
                     var newArray = Array<String>()
@@ -642,16 +637,24 @@ public class XcodeManager {
     }
     
     
-    /// 添加新的值到项目的Library Search Paths 所有scheme都添加
-    public func addNewLibrarySearchPathValue(newPath: String) {
+    /// Add LibrarySearchPath Value
+    ///
+    /// - Parameter newPath: path
+    public mutating func addNewLibrarySearchPathValue(newPath: String) {
+        
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return
+        }
+        
         if (newPath.isEmpty) {
-            print("参数不可为空!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            print("解析objects失败!")
+            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
         }
         
@@ -679,7 +682,7 @@ public class XcodeManager {
                     let string = LIBRARY_SEARCH_PATHS?.string ?? String()
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
-                        print("要添加的和已经存在的一致!忽略添加!")
+                        xcodeManagerPrintLog("current object is existing", type: .info)
                         continue
                     }
                     var newArray = Array<String>()
@@ -732,10 +735,17 @@ public class XcodeManager {
     }
     
     
-    /// 更改项目名
-    public func updateProductName(productName: String) {
+    /// Update Product Name
+    ///
+    /// - Parameter productName: productName
+    public mutating func updateProductName(productName: String) {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return
+        }
+        
         if (productName.isEmpty) {
-            print("参数不可为空!productName更改失败!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
@@ -757,10 +767,17 @@ public class XcodeManager {
         }
     }
     
-    /// 更改项目bundleid
-    public func updateBundleId(bundleid: String) {
+    /// Update project's bundleid
+    ///
+    /// - Parameter bundleid: bundleid, eg: com.zhengshoudong.xxx
+    public mutating func updateBundleId(bundleid: String) {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return
+        }
+        
         if (bundleid.isEmpty) {
-            print("参数不可为空!bundleid更改失败!")
+            xcodeManagerPrintLog("Please check the parameters!", type: .error)
             return
         }
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
@@ -783,8 +800,15 @@ public class XcodeManager {
     }
     
     
-    /// 更改项目自动手动签名设置
-    public func updateCodeSignStyle(type: CodeSignStyleType) {
+    /// Update project's codeSign style
+    ///
+    /// - Parameter type: enum CodeSignStyleType
+    public mutating func updateCodeSignStyle(type: CodeSignStyleType) {
+        
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return
+        }
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         for element in objects {
@@ -827,14 +851,20 @@ public class XcodeManager {
     }
     
     
-    /// 全部操作完毕,保存至文件
-    public func save() -> Bool {
-        let dict = _cacheProjet.dictionaryObject ?? Dictionary()
-        if (dict.isEmpty) {
-            print("保存失败!")
+    /// Save the project to file
+    ///
+    /// - Returns: Saved the result
+    public mutating func save() -> Bool {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return false
         }
         
+        let dict = _cacheProjet.dictionaryObject ?? Dictionary()
+        if (dict.isEmpty) {
+            xcodeManagerPrintLog("Save failed!", type: .error)
+            return false
+        }
         
         var fileUrl = URL(fileURLWithPath: _filePath)
         if fileUrl.pathExtension == "xcodeproj" {
@@ -842,6 +872,14 @@ public class XcodeManager {
         }
         
         return self.saveProject(fileURL: fileUrl, withPropertyList: dict)
+    }
+    
+    
+    fileprivate func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogType = .info) {
+        if (_isPrintLog) {
+            let msg = message as? String ?? String()
+            print("[\(type.rawValue)] \(msg)")
+        }
     }
     
 }
