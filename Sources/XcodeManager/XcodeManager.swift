@@ -54,12 +54,6 @@ public class XcodeManager {
     
     /// 解析工程文件,初始化入口
     public func initProject(_ filePath: String) -> XcodeManager {
-        self._cacheProjet = JSON()
-        self._hashTag = Int()
-        self._filePath = String()
-        self._mainGroupUUID = String()
-        self._rootObjectUUID = String()
-        self._currentProjectName = String()
         _ = self.parseProject(filePath)
         return self
     }
