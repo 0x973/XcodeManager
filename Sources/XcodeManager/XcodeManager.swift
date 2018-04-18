@@ -854,8 +854,7 @@ public class XcodeManager {
 
 
 extension Dictionary {
-    /// 判断两个字典是否一致
-    func isEqualTo(dict:[String: Any]) -> Bool {
+    fileprivate func isEqualTo(dict:[String: Any]) -> Bool {
         return NSDictionary(dictionary: self).isEqual(to: dict)
     }
 }
