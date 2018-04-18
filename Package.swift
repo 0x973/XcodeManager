@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "XcodeManager", targets: ["XcodeManager"])
     ],
     dependencies: [
-        .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", from: "4.0.0")
+        .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", from: "4.1.0")
     ],
     targets: [
         .target(name: "XcodeManager", dependencies: ["SwiftyJSON"])
