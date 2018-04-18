@@ -269,7 +269,7 @@ public struct XcodeManager {
     /// Add static library to project
     ///
     /// - Parameter staticLibraryFilePath: static lib file path
-    public mutating func addStaticLibraryToProject(staticLibraryFilePath: String) {
+    public mutating func addStaticLibraryToProject(_ staticLibraryFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
@@ -340,7 +340,7 @@ public struct XcodeManager {
     /// Add framework to project
     ///
     /// - Parameter frameworkFilePath: framework path
-    public mutating func addFrameworkToProject(frameworkFilePath: String) {
+    public mutating func addFrameworkToProject(_ frameworkFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
@@ -410,7 +410,7 @@ public struct XcodeManager {
     /// Add folder to project
     ///
     /// - Parameter folderPath: folder path
-    public mutating func addFolderToProject(folderPath: String) {
+    public mutating func addFolderToProject(_ folderPath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
@@ -429,7 +429,7 @@ public struct XcodeManager {
         dict["name"] = folderPath.split(separator: "/").last ?? folderPath
         dict["path"] = folderPath
         
-        var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
             xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
@@ -476,7 +476,7 @@ public struct XcodeManager {
     /// Add resources file to Project (Copy Bundle Rsources)
     ///
     /// - Parameter filePath: resources file
-    public mutating func addFileToProject(filePath: String) {
+    public mutating func addFileToProject(_ filePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
@@ -495,7 +495,7 @@ public struct XcodeManager {
         dict["name"] = filePath.split(separator: "/").last ?? filePath
         dict["path"] = filePath
         
-        var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
             xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
@@ -542,7 +542,7 @@ public struct XcodeManager {
     /// Add FrameworkSearchPath Value
     ///
     /// - Parameter newPath: path
-    public mutating func addNewFrameworkSearchPathValue(newPath: String) {
+    public mutating func addNewFrameworkSearchPathValue(_ newPath: String) {
         
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
@@ -577,8 +577,9 @@ public struct XcodeManager {
                 
                 // 一下即可确认就是需要的那个object!
                 let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
-                
-                if (FRAMEWORK_SEARCH_PATHS?.type == .string) {
+                let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
+                switch varType {
+                case .string:
                     // 如果为字符串类型,说明当前有且只有一个value!
                     // 添加时候需要取出来然后变成数组放回去
                     let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
@@ -596,7 +597,8 @@ public struct XcodeManager {
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     
-                } else if (FRAMEWORK_SEARCH_PATHS?.type == .array) {
+                    break
+                case .array:
                     // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
                     var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
                     
@@ -620,7 +622,8 @@ public struct XcodeManager {
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     
-                }else {
+                    break
+                default:
                     // 不存在,创建并追加
                     var newArray = Array<String>()
                     newArray.append("$(inherited)")
@@ -631,6 +634,7 @@ public struct XcodeManager {
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     
+                    break
                 }
             }
         }
@@ -640,7 +644,7 @@ public struct XcodeManager {
     /// Add LibrarySearchPath Value
     ///
     /// - Parameter newPath: path
-    public mutating func addNewLibrarySearchPathValue(newPath: String) {
+    public mutating func addNewLibrarySearchPathValue(_ newPath: String) {
         
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
@@ -673,10 +677,11 @@ public struct XcodeManager {
                     continue
                 }
                 
-                // 一下即可确认就是需要的那个object!
+                // 以下即可确认就是需要的那个object!
                 let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
-                
-                if (LIBRARY_SEARCH_PATHS?.type == .string) {
+                let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
+                switch varType {
+                case .string:
                     // 如果为字符串类型,说明当前有且只有一个value!
                     // 添加时候需要取出来然后变成数组放回去
                     let string = LIBRARY_SEARCH_PATHS?.string ?? String()
@@ -693,8 +698,8 @@ public struct XcodeManager {
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
-                    
-                } else if (LIBRARY_SEARCH_PATHS?.type == .array) {
+                    break
+                case .array:
                     // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
                     var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
                     
@@ -717,8 +722,8 @@ public struct XcodeManager {
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
-                    
-                }else {
+                    break
+                default:
                     // 不存在,创建并追加
                     var newArray = Array<String>()
                     newArray.append("$(inherited)")
@@ -728,7 +733,7 @@ public struct XcodeManager {
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
-                    
+                    break
                 }
             }
         }
@@ -738,7 +743,7 @@ public struct XcodeManager {
     /// Update Product Name
     ///
     /// - Parameter productName: productName
-    public mutating func updateProductName(productName: String) {
+    public mutating func updateProductName(_ productName: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
@@ -770,7 +775,7 @@ public struct XcodeManager {
     /// Update project's bundleid
     ///
     /// - Parameter bundleid: bundleid, eg: com.zhengshoudong.xxx
-    public mutating func updateBundleId(bundleid: String) {
+    public mutating func updateBundleId(_ bundleid: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return
