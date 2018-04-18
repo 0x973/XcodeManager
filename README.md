@@ -1,7 +1,6 @@
 # XcodeManager
 
-
-[![Travis CI](https://travis-ci.org/ZhengShouDong/XcodeManager.svg?branch=master)](https://travis-ci.org/ZhengShouDong/XcodeManager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
+[![Travis CI](https://travis-ci.org/ZhengShouDong/XcodeManager.svg?branch=master)](https://travis-ci.org/ZhengShouDong/XcodeManager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) [![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/ZhengShouDong/XcodeManager)
 
 The better way to manage the xcode project file (project.pbxproj) in Swift.
 
