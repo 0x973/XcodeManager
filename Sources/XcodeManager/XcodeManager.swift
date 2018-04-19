@@ -233,63 +233,68 @@ public struct XcodeManager {
             return "unknown"
         }
         
-        let fileName = path.split(separator: "/").last ?? Substring()
-        if (fileName.isEmpty) {
+        let fileURL = URL(fileURLWithPath: path)
+        if (!fileURL.isFileURL) {
             return "unknown"
         }
         
-        switch fileName {
-        case ".xib" :
-            return "file.xib"
-        case ".plist" :
-            return "text.plist.xml"
-        case ".bundle" :
-            return "wrapper.plug-in"
-        case ".a" :
+        let filePathExtension = fileURL.pathExtension
+        if (filePathExtension.isEmpty) {
+            return "unknown"
+        }
+        
+        switch filePathExtension {
+        case "a" :
             return "archive.ar"
-        case ".framework" :
+        case "framework" :
             return "wrapper.framework"
-        case ".js" :
+        case "xib" :
+            return "file.xib"
+        case "plist" :
+            return "text.plist.xml"
+        case "bundle" :
+            return "wrapper.plug-in"
+        case "js" :
             return "sourcecode.javascript"
-        case ".html" :
+        case "html" :
             return "sourcecode.html"
-        case ".json" :
+        case "json" :
             return "sourcecode.json"
-        case ".xml" :
+        case "xml" :
             return "sourcecode.xml"
-        case ".png" :
+        case "png" :
             return "image.png"
-        case ".txt" :
+        case "txt" :
             return "text"
-        case ".xcconfig" :
+        case "xcconfig" :
             return "text.xcconfig"
-        case ".markdown" :
+        case "markdown" :
             return "text"
-        case ".tbd" :
+        case "tbd" :
             return "sourcecode.text-based-dylib-definition"
-        case ".sh" :
+        case "sh" :
             return "text.script.sh"
-        case ".pch" :
+        case "pch" :
             return "sourcecode.c.h"
-        case ".xcdatamodel" :
+        case "xcdatamodel" :
             return "wrapper.xcdatamodel"
-        case ".m" :
+        case "m" :
             return "sourcecode.c.objc"
-        case ".h" :
+        case "h" :
             return "sourcecode.c.h"
-        case ".swift" :
+        case "swift" :
             return "sourcecode.swift"
-        case ".storyboard" :
+        case "storyboard" :
             return "file.storyboard"
-        case ".dylib" :
+        case "dylib" :
             return "compiled.mach-o.dylib"
-        case ".jpg", ".jpeg" :
+        case "jpg", "jpeg" :
             return "image.jpg"
-        case ".mp4" :
+        case "mp4" :
             return "video.mp4"
-        case ".app" :
+        case "app" :
             return "wrapper.application"
-        case ".xcassets" :
+        case "xcassets" :
             return "folder.assetcatalog"
         default :
             return "unknown"
