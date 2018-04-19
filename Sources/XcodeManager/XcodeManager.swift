@@ -101,8 +101,9 @@ public struct XcodeManager {
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
             self._rootObjectUUID = self._cacheProjet["rootObject"].stringValue
-            self._mainGroupUUID = self._cacheProjet["objects"][self._rootObjectUUID]["mainGroup"].stringValue
-            for ele in _cacheProjet["objects"] {
+            let obj = self._cacheProjet["objects"]
+            self._mainGroupUUID = obj[self._rootObjectUUID]["mainGroup"].stringValue
+            for ele in obj {
                 let valueObj = ele.1
                 if (!valueObj.isEmpty) {
                     if (valueObj["isa"].stringValue == "PBXNativeTarget" && valueObj["productType"].stringValue == "com.apple.product-type.application") {
