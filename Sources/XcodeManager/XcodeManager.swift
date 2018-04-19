@@ -59,17 +59,27 @@ public struct XcodeManager {
         case error = "XcodeManagerError"
     }
     
-    public init(projectFile: String, printLog: Bool = true) {
+    fileprivate enum XcodeManagerError: Error {
+        case invalidParameter(code: Int, reason: String)
+        case failedInitialize(code :Int, reason: String)
+        case uninitialized(code: Int, reason: String)
+    }
+    
+    public init(projectFile: String, printLog: Bool = true) throws {
         self._filePath = projectFile
         self._isPrintLog = printLog
-        _ = self.parseProject(self._filePath)
+        do {
+            _ = try self.parseProject(self._filePath)
+        }catch {
+            throw error
+        }
     }
     
     /// parseProjectFile
-    fileprivate mutating func parseProject(_ filePath: String) -> JSON {
+    fileprivate mutating func parseProject(_ filePath: String) throws -> JSON {
         if (!FileManager.default.fileExists(atPath: filePath)) {
             xcodeManagerPrintLog("Please check the parameters!", type: .error)
-            return JSON()
+            throw XcodeManagerError.invalidParameter(code: 600, reason: "the file not found!")
         }
         
         var fileUrl = URL(fileURLWithPath: filePath)
@@ -80,13 +90,13 @@ public struct XcodeManager {
         do {
             let fileData = try Data(contentsOf: fileUrl)
             
-            if (self._hashTag == fileData.hashValue && !_cacheProjet.isEmpty) {
-                // 数据一致,直接返回缓存
-                return _cacheProjet
+            let hashValue = fileData.hashValue
+            if (self._hashTag == hashValue && !self._cacheProjet.isEmpty) {
+                return self._cacheProjet
             }
             
             self._filePath = filePath
-            self._hashTag = fileData.hashValue
+            self._hashTag = hashValue
             
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
@@ -98,13 +108,14 @@ public struct XcodeManager {
                     if (valueObj["isa"].stringValue == "PBXNativeTarget" && valueObj["productType"].stringValue == "com.apple.product-type.application") {
                         let name = valueObj["name"].stringValue
                         _currentProjectName = name
+                        break
                     }
                 }
             }
             return self._cacheProjet
         } catch {
             xcodeManagerPrintLog("read project file failed. error: \(error.localizedDescription)", type: .error)
-            return JSON()
+            throw XcodeManagerError.failedInitialize(code: 601, reason: "read project file failed")
         }
     }
     
@@ -167,14 +178,14 @@ public struct XcodeManager {
     
     /// generate new uuid (not repeat)
     fileprivate func generateUuid() -> String {
-        if (_cacheProjet.isEmpty) {
+        if (self._cacheProjet.isEmpty) {
             // cache empty!
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return String()
         }
         
         let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "").suffix(24).uppercased()
-        let array = self.allUuids(_cacheProjet)
+        let array = self.allUuids(self._cacheProjet)
         if (array.index(of: uuid) ?? -1 >= 0) {
             return generateUuid()
         }
@@ -221,48 +232,67 @@ public struct XcodeManager {
             return "unknown"
         }
         
-        let fileName = path.split(separator: "/").last ?? ""
+        let fileName = path.split(separator: "/").last ?? Substring()
         if (fileName.isEmpty) {
             return "unknown"
         }
         
-        let regexsKeyValue = [
-            ".xib": "file.xib",
-            ".plist": "text.plist.xml",
-            ".bundle": "wrapper.plug-in",
-            ".a": "archive.ar",
-            ".framework": "wrapper.framework",
-            ".js": "sourcecode.javascript",
-            ".html": "sourcecode.html",
-            ".json": "sourcecode.json",
-            ".xml": "sourcecode.xml",
-            ".png": "image.png",
-            ".txt": "text",
-            ".xcconfig": "text.xcconfig",
-            ".markdown": "text",
-            ".tbd": "sourcecode.text-based-dylib-definition",
-            ".sh": "text.script.sh",
-            ".pch": "sourcecode.c.h",
-            ".xcdatamodel": "wrapper.xcdatamodel",
-            ".m": "sourcecode.c.objc",
-            ".h": "sourcecode.c.h",
-            ".swift": "sourcecode.swift",
-            ".storyboard": "file.storyboard",
-            ".dylib": "compiled.mach-o.dylib",
-            ".jpg": "image.jpg",
-            ".jpeg": "image.jpg",
-            ".mp4": "video.mp4",
-            ".app": "wrapper.application",
-            ".xcassets": "folder.assetcatalog"
-        ]
-        
-        for element in regexsKeyValue {
-            let fileSuffix = element.key
-            if (fileName.hasSuffix(fileSuffix)) {
-                return element.value
-            }
+        switch fileName {
+        case ".xib" :
+            return "file.xib"
+        case ".plist" :
+            return "text.plist.xml"
+        case ".bundle" :
+            return "wrapper.plug-in"
+        case ".a" :
+            return "archive.ar"
+        case ".framework" :
+            return "wrapper.framework"
+        case ".js" :
+            return "sourcecode.javascript"
+        case ".html" :
+            return "sourcecode.html"
+        case ".json" :
+            return "sourcecode.json"
+        case ".xml" :
+            return "sourcecode.xml"
+        case ".png" :
+            return "image.png"
+        case ".txt" :
+            return "text"
+        case ".xcconfig" :
+            return "text.xcconfig"
+        case ".markdown" :
+            return "text"
+        case ".tbd" :
+            return "sourcecode.text-based-dylib-definition"
+        case ".sh" :
+            return "text.script.sh"
+        case ".pch" :
+            return "sourcecode.c.h"
+        case ".xcdatamodel" :
+            return "wrapper.xcdatamodel"
+        case ".m" :
+            return "sourcecode.c.objc"
+        case ".h" :
+            return "sourcecode.c.h"
+        case ".swift" :
+            return "sourcecode.swift"
+        case ".storyboard" :
+            return "file.storyboard"
+        case ".dylib" :
+            return "compiled.mach-o.dylib"
+        case ".jpg", ".jpeg" :
+            return "image.jpg"
+        case ".mp4" :
+            return "video.mp4"
+        case ".app" :
+            return "wrapper.application"
+        case ".xcassets" :
+            return "folder.assetcatalog"
+        default :
+            return "unknown"
         }
-        return "unknown"
     }
     
     
@@ -288,7 +318,7 @@ public struct XcodeManager {
         dict["name"] = staticLibraryFilePath.split(separator: "/").last ?? staticLibraryFilePath
         dict["path"] = staticLibraryFilePath
         
-        var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
             xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
@@ -359,7 +389,7 @@ public struct XcodeManager {
         dict["name"] = frameworkFilePath.split(separator: "/").last ?? frameworkFilePath
         dict["path"] = frameworkFilePath
         
-        var objects = _cacheProjet["objects"].dictionary ?? Dictionary()
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
             xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
             return
@@ -881,9 +911,11 @@ public struct XcodeManager {
     
     
     fileprivate func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogType = .info) {
-        if (_isPrintLog) {
+        if (self._isPrintLog) {
             let msg = message as? String ?? String()
-            print("[\(type.rawValue)] \(msg)")
+            if (!msg.isEmpty) {
+                print("[\(type.rawValue)] \(msg)")
+            }
         }
     }
     
