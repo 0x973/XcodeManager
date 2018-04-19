@@ -61,8 +61,7 @@ public struct XcodeManager {
     
     fileprivate enum XcodeManagerError: Error {
         case invalidParameter(code: Int, reason: String)
-        case failedInitialize(code :Int, reason: String)
-        case uninitialized(code: Int, reason: String)
+        case failedInitialized(code :Int, reason: String)
     }
     
     public init(projectFile: String, printLog: Bool = true) throws {
@@ -106,7 +105,8 @@ public struct XcodeManager {
             for ele in obj {
                 let valueObj = ele.1
                 if (!valueObj.isEmpty) {
-                    if (valueObj["isa"].stringValue == "PBXNativeTarget" && valueObj["productType"].stringValue == "com.apple.product-type.application") {
+                    if (valueObj["isa"].stringValue == "PBXNativeTarget" &&
+                        valueObj["productType"].stringValue == "com.apple.product-type.application") {
                         let name = valueObj["name"].stringValue
                         _currentProjectName = name
                         break
@@ -116,7 +116,7 @@ public struct XcodeManager {
             return self._cacheProjet
         } catch {
             xcodeManagerPrintLog("read project file failed. error: \(error.localizedDescription)", type: .error)
-            throw XcodeManagerError.failedInitialize(code: 601, reason: "read project file failed")
+            throw XcodeManagerError.failedInitialized(code: 601, reason: "read project file failed")
         }
     }
     
