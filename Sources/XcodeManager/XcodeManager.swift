@@ -81,6 +81,11 @@ public struct XcodeManager {
         }
         
         var fileUrl = URL(fileURLWithPath: filePath)
+        
+        if (!fileUrl.isFileURL) {
+            throw XcodeManagerError.failedInitialized(code: 600, reason: "read project file failed.")
+        }
+        
         if fileUrl.pathExtension == "xcodeproj" {
             fileUrl.appendPathComponent("project.pbxproj")
         }
