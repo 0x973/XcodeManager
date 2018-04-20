@@ -48,7 +48,6 @@ public struct XcodeManager {
     fileprivate var _isPrintLog = true
     
     public enum CodeSignStyleType: String{
-        public typealias RawValue = String
         case automatic = "Automatic"
         case manual = "Manual"
     }
@@ -116,7 +115,7 @@ public struct XcodeManager {
             return self._cacheProjet
         } catch {
             xcodeManagerPrintLog("read project file failed. error: \(error.localizedDescription)", type: .error)
-            throw XcodeManagerError.failedInitialized(code: 601, reason: "read project file failed")
+            throw XcodeManagerError.failedInitialized(code: 601, reason: "read project file failed.\(error)")
         }
     }
     
