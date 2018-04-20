@@ -33,18 +33,18 @@ import SwiftyJSON
 
 public struct XcodeManager {
     
-    /// cache in memory
+    /// cached in memory
     fileprivate var _cacheProjet: JSON = JSON()
     fileprivate var _hashTag: Int = Int()
     fileprivate var _filePath: String = String()
     
     /// main group UUID
     fileprivate var _mainGroupUUID: String = String()
-    /// root object uuid in root node
+    /// root object uuid
     fileprivate var _rootObjectUUID: String = String()
     /// current project name
     fileprivate var _currentProjectName: String = String()
-    
+    /// need to print log ?
     fileprivate var _isPrintLog = true
     
     public enum CodeSignStyleType: String{
@@ -159,19 +159,21 @@ public struct XcodeManager {
     }
     
     
-    /// get all objects uuids
+    /// get all objects uuid
     fileprivate func allUuids(_ projectDict: JSON) -> Array<String> {
         let objects = projectDict["objects"].dictionaryObject ?? Dictionary()
         
         var uuids = Array<String>()
         
-        for obj in objects {
-            uuids.append(obj.key)
+        objects.forEach { (key, value) in
+            if (key.lengthOfBytes(using: .utf8) == 24) {
+                uuids.append(key)
+            }
         }
         
-        uuids = uuids.filter({
-            $0.lengthOfBytes(using: .utf8) == 24
-        })
+        //        uuids = uuids.filter({
+        //            $0.lengthOfBytes(using: .utf8) == 24
+        //        })
         
         return uuids
     }
@@ -537,7 +539,7 @@ public struct XcodeManager {
             return
         }
         
-        /// 比较是否和当前工程中的obj一致
+        /// 比较是否和当前工程中的已存在的object一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
                 xcodeManagerPrintLog("current object is existing")
@@ -611,7 +613,7 @@ public struct XcodeManager {
                     continue
                 }
                 
-                // 一下即可确认就是需要的那个object!
+                // 可确认就是需要的object
                 let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
                 let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
                 switch varType {
