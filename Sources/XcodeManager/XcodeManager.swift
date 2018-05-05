@@ -133,7 +133,7 @@ public struct XcodeManager {
             func encodeString(_ str: String) -> String {
                 var result = String()
                 for scalar in str.unicodeScalars {
-                    if scalar.value > 0x4e00 && scalar.value < 0x9fff {
+                    if (scalar.value > 0x4e00 && scalar.value < 0x9fff) {
                         result += String(format: "&#%04d;", scalar.value)
                     } else {
                         result += scalar.description
@@ -360,14 +360,12 @@ public struct XcodeManager {
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             
-            if (!obj.isEmpty) {
-                if obj["isa"] as? String == "PBXFrameworksBuildPhase" {
-                    var files = obj["files"] as? Array<String> ?? Array()
-                    files.append(PBXBuildFileUUID)
-                    obj["files"] = files
-                    /// 写入缓存PBXFrameworksBuildPhase的缓存
-                    objects[object.key] = JSON(obj)
-                }
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                var files = obj["files"] as? Array<String> ?? Array()
+                files.append(PBXBuildFileUUID)
+                obj["files"] = files
+                /// 写入缓存PBXFrameworksBuildPhase的缓存
+                objects[object.key] = JSON(obj)
             }
         }
         // 回写缓存
