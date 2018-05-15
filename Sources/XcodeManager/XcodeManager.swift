@@ -69,6 +69,7 @@ public struct XcodeManager {
         do {
             _ = try self.parseProject(self._filePath)
         }catch {
+            xcodeManagerPrintLog("\(error)", type: .error)
             throw error
         }
     }
@@ -103,16 +104,21 @@ public struct XcodeManager {
             
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
-            self._rootObjectUUID = self._cacheProjet["rootObject"].stringValue
-            let obj = self._cacheProjet["objects"]
-            self._mainGroupUUID = obj[self._rootObjectUUID]["mainGroup"].stringValue
-            for ele in obj {
-                let valueObj = ele.1
-                if (!valueObj.isEmpty) {
-                    if (valueObj["isa"].stringValue == "PBXNativeTarget" &&
-                        valueObj["productType"].stringValue == "com.apple.product-type.application") {
-                        let name = valueObj["name"].stringValue
-                        _currentProjectName = name
+            self._rootObjectUUID = self._cacheProjet["rootObject"].string ?? String()
+            let obj = self._cacheProjet["objects"].dictionary ?? Dictionary()
+            let rootObject = obj[self._rootObjectUUID]?.dictionary ?? Dictionary()
+            self._mainGroupUUID = rootObject["mainGroup"]?.string ?? String()
+            
+            if (rootObject.isEmpty || self._mainGroupUUID.isEmpty) {
+                xcodeManagerPrintLog("read project file failed. error: the file data is incomplete", type: .error)
+                throw XcodeManagerError.failedInitialized(code: 601, reason: "the file data is incomplete!")
+            }
+            
+            for (_, value) in rootObject {
+                if (!value.isEmpty) {
+                    if (value["isa"].stringValue == "PBXNativeTarget" &&
+                        value["productType"].stringValue == "com.apple.product-type.application") {
+                        self._currentProjectName = value["name"].stringValue
                         break
                     }
                 }
@@ -240,12 +246,8 @@ public struct XcodeManager {
         }
         
         let fileURL = URL(fileURLWithPath: path)
-        if (!fileURL.isFileURL) {
-            return "unknown"
-        }
-        
         let filePathExtension = fileURL.pathExtension
-        if (filePathExtension.isEmpty) {
+        if (!fileURL.isFileURL || filePathExtension.isEmpty) {
             return "unknown"
         }
         
@@ -332,14 +334,14 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -401,13 +403,13 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -471,14 +473,14 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -537,14 +539,14 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的已存在的object一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -596,10 +598,11 @@ public struct XcodeManager {
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
+        objectsFor:
         for element in objects {
             var dict = element.value
             let isa = dict["isa"].string ?? String()
@@ -625,7 +628,7 @@ public struct XcodeManager {
                     let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
-                        xcodeManagerPrintLog("current object is existing", type: .info)
+                        xcodeManagerPrintLog("current object already exists.")
                         continue
                     }
                     var newArray = Array<String>()
@@ -643,16 +646,11 @@ public struct XcodeManager {
                     var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
                     
                     // 判断是否已经有相同value存在
-                    var isExist = false
                     for ele in newArray {
                         let str = ele.string ?? String()
                         if (str == newPath) {
-                            isExist = true
+                            continue objectsFor
                         }
-                    }
-                    
-                    if (isExist) {
-                        continue
                     }
                     
                     newArray.append(JSON(newPath))
@@ -698,10 +696,11 @@ public struct XcodeManager {
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
+        objectsFor:
         for element in objects {
             var dict = element.value
             let isa = dict["isa"].string ?? String()
@@ -727,7 +726,7 @@ public struct XcodeManager {
                     let string = LIBRARY_SEARCH_PATHS?.string ?? String()
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
-                        xcodeManagerPrintLog("current object is existing", type: .info)
+                        xcodeManagerPrintLog("current object already exists.")
                         continue
                     }
                     var newArray = Array<String>()
@@ -744,16 +743,11 @@ public struct XcodeManager {
                     var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
                     
                     // 判断是否已经有相同value存在
-                    var isExist = false
                     for ele in newArray {
                         let str = ele.string ?? String()
                         if (str == newPath) {
-                            isExist = true
+                            continue objectsFor
                         }
-                    }
-                    
-                    if (isExist) {
-                        continue
                     }
                     
                     newArray.append(JSON(newPath))
