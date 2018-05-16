@@ -2,7 +2,27 @@
 
 [![Travis CI](https://travis-ci.org/ZhengShouDong/XcodeManager.svg?branch=master)](https://travis-ci.org/ZhengShouDong/XcodeManager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage) [![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/ZhengShouDong/XcodeManager)
 
-The better way to manage the xcode project file (project.pbxproj) in Swift.
+The better way to manage the Xcode project file (project.pbxproj) in swift.
+This swift module lets you automate the modification process.
+
+## Installation
+1. Swift Package Manager
+```swift
+.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.1.0")
+```
+
+2. Carthage
+You can use [Carthage](https://github.com/Carthage/Carthage) to install `XcodeManager` by adding it to your Cartfile:
+```
+github "ZhengShouDong/XcodeManager" ~> 0.1.0
+```
+
+## Usage
+0. import module
+
+```swift
+import XcodeManager
+```
 
 1. Initialize the Xcode project file.
 
@@ -64,7 +84,7 @@ project.addNewFrameworkSearchPathValue("$(PROJECT_DIR)/TestProduct/Folder")
 project.updateCodeSignStyle(type: .manual)
 ```
 
-11. Change is completed? You can save the project!
+11. Complete modification? Write to a .pbxproj file!
 
 ```swift
 let isSaveSuccess = project.save()
