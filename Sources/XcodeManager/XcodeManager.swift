@@ -629,7 +629,7 @@ public struct XcodeManager {
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
                         xcodeManagerPrintLog("current object already exists.")
-                        continue
+                        return
                     }
                     var newArray = Array<String>()
                     newArray.append(string)
@@ -649,7 +649,7 @@ public struct XcodeManager {
                     for ele in newArray {
                         let str = ele.string ?? String()
                         if (str == newPath) {
-                            continue objectsFor
+                            break objectsFor
                         }
                     }
                     
@@ -727,7 +727,7 @@ public struct XcodeManager {
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
                         xcodeManagerPrintLog("current object already exists.")
-                        continue
+                        return
                     }
                     var newArray = Array<String>()
                     newArray.append(string)
@@ -746,7 +746,7 @@ public struct XcodeManager {
                     for ele in newArray {
                         let str = ele.string ?? String()
                         if (str == newPath) {
-                            continue objectsFor
+                            break objectsFor
                         }
                     }
                     
@@ -808,7 +808,7 @@ public struct XcodeManager {
     
     /// Update project's bundleid
     ///
-    /// - Parameter bundleid: bundleid, eg: com.zhengshoudong.xxx
+    /// - Parameter bundleid: bundleid, eg: cn.zhengshoudong.xxx
     public mutating func updateBundleId(_ bundleid: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
