@@ -69,6 +69,7 @@ public struct XcodeManager {
         do {
             _ = try self.parseProject(self._filePath)
         }catch {
+            xcodeManagerPrintLog("\(error)", type: .error)
             throw error
         }
     }
@@ -103,6 +104,7 @@ public struct XcodeManager {
             
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
+<<<<<<< HEAD
             self._rootObjectUUID = self._cacheProjet["rootObject"].stringValue
             let objects = self._cacheProjet["objects"]
             self._mainGroupUUID = objects[self._rootObjectUUID]["mainGroup"].stringValue
@@ -113,6 +115,23 @@ public struct XcodeManager {
                         valueObj["productType"].stringValue == "com.apple.product-type.application") {
                         let name = valueObj["name"].stringValue
                         _currentProjectName = name
+=======
+            self._rootObjectUUID = self._cacheProjet["rootObject"].string ?? String()
+            let obj = self._cacheProjet["objects"].dictionary ?? Dictionary()
+            let rootObject = obj[self._rootObjectUUID]?.dictionary ?? Dictionary()
+            self._mainGroupUUID = rootObject["mainGroup"]?.string ?? String()
+            
+            if (rootObject.isEmpty || self._mainGroupUUID.isEmpty) {
+                xcodeManagerPrintLog("read project file failed. error: the file data is incomplete", type: .error)
+                throw XcodeManagerError.failedInitialized(code: 601, reason: "the file data is incomplete!")
+            }
+            
+            for (_, value) in rootObject {
+                if (!value.isEmpty) {
+                    if (value["isa"].stringValue == "PBXNativeTarget" &&
+                        value["productType"].stringValue == "com.apple.product-type.application") {
+                        self._currentProjectName = value["name"].stringValue
+>>>>>>> 180040081bc1badd1c985cf2ec848ad1689eea62
                         break
                     }
                 }
@@ -133,7 +152,7 @@ public struct XcodeManager {
             func encodeString(_ str: String) -> String {
                 var result = String()
                 for scalar in str.unicodeScalars {
-                    if scalar.value > 0x4e00 && scalar.value < 0x9fff {
+                    if (scalar.value > 0x4e00 && scalar.value < 0x9fff) {
                         result += String(format: "&#%04d;", scalar.value)
                     } else {
                         result += scalar.description
@@ -240,12 +259,8 @@ public struct XcodeManager {
         }
         
         let fileURL = URL(fileURLWithPath: path)
-        if (!fileURL.isFileURL) {
-            return "unknown"
-        }
-        
         let filePathExtension = fileURL.pathExtension
-        if (filePathExtension.isEmpty) {
+        if (!fileURL.isFileURL || filePathExtension.isEmpty) {
             return "unknown"
         }
         
@@ -332,14 +347,14 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -360,14 +375,12 @@ public struct XcodeManager {
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             
-            if (!obj.isEmpty) {
-                if obj["isa"] as? String == "PBXFrameworksBuildPhase" {
-                    var files = obj["files"] as? Array<String> ?? Array()
-                    files.append(PBXBuildFileUUID)
-                    obj["files"] = files
-                    /// 写入缓存PBXFrameworksBuildPhase的缓存
-                    objects[object.key] = JSON(obj)
-                }
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                var files = obj["files"] as? Array<String> ?? Array()
+                files.append(PBXBuildFileUUID)
+                obj["files"] = files
+                /// 写入缓存PBXFrameworksBuildPhase的缓存
+                objects[object.key] = JSON(obj)
             }
         }
         // 回写缓存
@@ -403,13 +416,13 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -473,14 +486,14 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -539,14 +552,14 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
         /// 比较是否和当前工程中的已存在的object一致
         for object in objects {
             if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
-                xcodeManagerPrintLog("current object is existing")
+                xcodeManagerPrintLog("current object already exists.")
                 return
             }
         }
@@ -598,10 +611,11 @@ public struct XcodeManager {
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
+        objectsFor:
         for element in objects {
             var dict = element.value
             let isa = dict["isa"].string ?? String()
@@ -627,8 +641,8 @@ public struct XcodeManager {
                     let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
-                        xcodeManagerPrintLog("current object is existing", type: .info)
-                        continue
+                        xcodeManagerPrintLog("current object already exists.")
+                        return
                     }
                     var newArray = Array<String>()
                     newArray.append(string)
@@ -645,16 +659,11 @@ public struct XcodeManager {
                     var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
                     
                     // 判断是否已经有相同value存在
-                    var isExist = false
                     for ele in newArray {
                         let str = ele.string ?? String()
                         if (str == newPath) {
-                            isExist = true
+                            break objectsFor
                         }
-                    }
-                    
-                    if (isExist) {
-                        continue
                     }
                     
                     newArray.append(JSON(newPath))
@@ -700,10 +709,11 @@ public struct XcodeManager {
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects wrong!", type: .error)
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
             return
         }
         
+        objectsFor:
         for element in objects {
             var dict = element.value
             let isa = dict["isa"].string ?? String()
@@ -729,8 +739,8 @@ public struct XcodeManager {
                     let string = LIBRARY_SEARCH_PATHS?.string ?? String()
                     if (newPath == string) {
                         // 要添加的和已经存在的一致
-                        xcodeManagerPrintLog("current object is existing", type: .info)
-                        continue
+                        xcodeManagerPrintLog("current object already exists.")
+                        return
                     }
                     var newArray = Array<String>()
                     newArray.append(string)
@@ -746,16 +756,11 @@ public struct XcodeManager {
                     var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
                     
                     // 判断是否已经有相同value存在
-                    var isExist = false
                     for ele in newArray {
                         let str = ele.string ?? String()
                         if (str == newPath) {
-                            isExist = true
+                            break objectsFor
                         }
-                    }
-                    
-                    if (isExist) {
-                        continue
                     }
                     
                     newArray.append(JSON(newPath))
@@ -839,7 +844,7 @@ public struct XcodeManager {
     
     /// Update project's bundleid
     ///
-    /// - Parameter bundleid: bundleid, eg: com.zhengshoudong.xxx
+    /// - Parameter bundleid: bundleid, eg: cn.zhengshoudong.xxx
     public mutating func updateBundleId(_ bundleid: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
