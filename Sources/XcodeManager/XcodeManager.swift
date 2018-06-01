@@ -104,18 +104,6 @@ public struct XcodeManager {
             
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
-<<<<<<< HEAD
-            self._rootObjectUUID = self._cacheProjet["rootObject"].stringValue
-            let objects = self._cacheProjet["objects"]
-            self._mainGroupUUID = objects[self._rootObjectUUID]["mainGroup"].stringValue
-            for ele in objects {
-                let valueObj = ele.1
-                if (!valueObj.isEmpty) {
-                    if (valueObj["isa"].stringValue == "PBXNativeTarget" &&
-                        valueObj["productType"].stringValue == "com.apple.product-type.application") {
-                        let name = valueObj["name"].stringValue
-                        _currentProjectName = name
-=======
             self._rootObjectUUID = self._cacheProjet["rootObject"].string ?? String()
             let obj = self._cacheProjet["objects"].dictionary ?? Dictionary()
             let rootObject = obj[self._rootObjectUUID]?.dictionary ?? Dictionary()
@@ -131,7 +119,6 @@ public struct XcodeManager {
                     if (value["isa"].stringValue == "PBXNativeTarget" &&
                         value["productType"].stringValue == "com.apple.product-type.application") {
                         self._currentProjectName = value["name"].stringValue
->>>>>>> 180040081bc1badd1c985cf2ec848ad1689eea62
                         break
                     }
                 }
@@ -259,6 +246,7 @@ public struct XcodeManager {
         }
         
         let fileURL = URL(fileURLWithPath: path)
+        
         let filePathExtension = fileURL.pathExtension
         if (!fileURL.isFileURL || filePathExtension.isEmpty) {
             return "unknown"
@@ -616,78 +604,77 @@ public struct XcodeManager {
         }
         
         objectsFor:
-        for element in objects {
-            var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                if (buildSettings.isEmpty) {
-                    continue
-                }
-                
-                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
-                    continue
-                }
-                
-                // 可确认就是需要的object
-                let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
-                let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
-                switch varType {
-                case .string:
-                    // 如果为字符串类型,说明当前有且只有一个value!
-                    // 添加时候需要取出来然后变成数组放回去
-                    let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
-                    if (newPath == string) {
-                        // 要添加的和已经存在的一致
-                        xcodeManagerPrintLog("current object already exists.")
-                        return
+            for element in objects {
+                var dict = element.value
+                let isa = dict["isa"].string ?? String()
+                if (isa == "XCBuildConfiguration") {
+                    var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    if (buildSettings.isEmpty) {
+                        continue
                     }
-                    var newArray = Array<String>()
-                    newArray.append(string)
-                    newArray.append(newPath)
                     
-                    // 回写
-                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    self._cacheProjet["objects"][element.key] = dict
+                    let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                    let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                    if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
+                        continue
+                    }
                     
-                    break
-                case .array:
-                    // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
-                    var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
-                    
-                    // 判断是否已经有相同value存在
-                    for ele in newArray {
-                        let str = ele.string ?? String()
-                        if (str == newPath) {
-                            break objectsFor
+                    // 可确认就是需要的object
+                    let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
+                    let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
+                    switch varType {
+                    case .string:
+                        // 如果为字符串类型,说明当前有且只有一个value!
+                        // 添加时候需要取出来然后变成数组放回去
+                        let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
+                        if (newPath == string) {
+                            // 要添加的和已经存在的一致
+                            xcodeManagerPrintLog("current object already exists.")
+                            return
                         }
+                        var newArray = Array<String>()
+                        newArray.append(string)
+                        newArray.append(newPath)
+                        
+                        // 回写
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                        break
+                    case .array:
+                        // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
+                        var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
+                        
+                        // 判断是否已经有相同value存在
+                        for ele in newArray {
+                            let str = ele.string ?? String()
+                            if (str == newPath) {
+                                break objectsFor
+                            }
+                        }
+                        
+                        newArray.append(JSON(newPath))
+                        
+                        // 回写
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                        
+                        break
+                    default:
+                        // 不存在,创建并追加
+                        var newArray = Array<String>()
+                        newArray.append("$(inherited)")
+                        newArray.append(newPath)
+                        
+                        // 回写
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                        
+                        break
                     }
-                    
-                    newArray.append(JSON(newPath))
-                    
-                    // 回写
-                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    self._cacheProjet["objects"][element.key] = dict
-                    
-                    break
-                default:
-                    // 不存在,创建并追加
-                    var newArray = Array<String>()
-                    newArray.append("$(inherited)")
-                    newArray.append(newPath)
-                    
-                    // 回写
-                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    self._cacheProjet["objects"][element.key] = dict
-                    
-                    break
                 }
-            }
         }
     }
     
@@ -710,79 +697,80 @@ public struct XcodeManager {
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
             xcodeManagerPrintLog("Parsed objects error!", type: .error)
+            
             return
         }
         
         objectsFor:
-        for element in objects {
-            var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                if (buildSettings.isEmpty) {
-                    continue
-                }
-                
-                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
-                    continue
-                }
-                
-                // 以下即可确认就是需要的那个object!
-                let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
-                let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
-                switch varType {
-                case .string:
-                    // 如果为字符串类型,说明当前有且只有一个value!
-                    // 添加时候需要取出来然后变成数组放回去
-                    let string = LIBRARY_SEARCH_PATHS?.string ?? String()
-                    if (newPath == string) {
-                        // 要添加的和已经存在的一致
-                        xcodeManagerPrintLog("current object already exists.")
-                        return
+            for element in objects {
+                var dict = element.value
+                let isa = dict["isa"].string ?? String()
+                if (isa == "XCBuildConfiguration") {
+                    var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    if (buildSettings.isEmpty) {
+                        continue
                     }
-                    var newArray = Array<String>()
-                    newArray.append(string)
-                    newArray.append(newPath)
                     
-                    // 回写
-                    buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    self._cacheProjet["objects"][element.key] = dict
-                    break
-                case .array:
-                    // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
-                    var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
+                    let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                    let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                    if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
+                        continue
+                    }
                     
-                    // 判断是否已经有相同value存在
-                    for ele in newArray {
-                        let str = ele.string ?? String()
-                        if (str == newPath) {
-                            break objectsFor
+                    // 以下即可确认就是需要的那个object!
+                    let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
+                    let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
+                    switch varType {
+                    case .string:
+                        // 如果为字符串类型,说明当前有且只有一个value!
+                        // 添加时候需要取出来然后变成数组放回去
+                        let string = LIBRARY_SEARCH_PATHS?.string ?? String()
+                        if (newPath == string) {
+                            // 要添加的和已经存在的一致
+                            xcodeManagerPrintLog("current object already exists.")
+                            return
                         }
+                        var newArray = Array<String>()
+                        newArray.append(string)
+                        newArray.append(newPath)
+                        
+                        // 回写
+                        buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                        break
+                    case .array:
+                        // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
+                        var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
+                        
+                        // 判断是否已经有相同value存在
+                        for ele in newArray {
+                            let str = ele.string ?? String()
+                            if (str == newPath) {
+                                break objectsFor
+                            }
+                        }
+                        
+                        newArray.append(JSON(newPath))
+                        
+                        // 回写
+                        buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                        break
+                    default:
+                        // 不存在,创建并追加
+                        var newArray = Array<String>()
+                        newArray.append("$(inherited)")
+                        newArray.append(newPath)
+                        
+                        // 回写
+                        buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                        break
                     }
-                    
-                    newArray.append(JSON(newPath))
-                    
-                    // 回写
-                    buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    self._cacheProjet["objects"][element.key] = dict
-                    break
-                default:
-                    // 不存在,创建并追加
-                    var newArray = Array<String>()
-                    newArray.append("$(inherited)")
-                    newArray.append(newPath)
-                    
-                    // 回写
-                    buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    self._cacheProjet["objects"][element.key] = dict
-                    break
                 }
-            }
         }
     }
     
