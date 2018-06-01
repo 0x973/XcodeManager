@@ -131,7 +131,6 @@ public struct XcodeManager {
     }
     
     
-    /// 将数据内容生成为工程文件,反存储
     fileprivate func saveProject(fileURL: URL, withPropertyList list: Any) -> Bool{
         let url = fileURL
         
@@ -168,7 +167,6 @@ public struct XcodeManager {
         }
     }
     
-    
     /// get all objects uuid
     fileprivate func allUuids(_ projectDict: JSON) -> Array<String> {
         let objects = projectDict["objects"].dictionaryObject ?? Dictionary()
@@ -181,15 +179,11 @@ public struct XcodeManager {
             }
         }
         
-        //        uuids = uuids.filter({
-        //            $0.lengthOfBytes(using: .utf8) == 24
-        //        })
-        
         return uuids
     }
     
     
-    /// generate new uuid (not repeat)
+    /// generate a new uuid
     fileprivate func generateUuid() -> String {
         if (self._cacheProjet.isEmpty) {
             // cache empty!
@@ -378,7 +372,6 @@ public struct XcodeManager {
         let newPath = staticLibraryFilePath.replacingOccurrences(of: staticLibraryFilePath.split(separator: "/").last ?? "", with: "")
         self.addNewLibrarySearchPathValue(newPath)
     }
-    
     
     /// Add framework to project
     ///
@@ -807,29 +800,6 @@ public struct XcodeManager {
         }
     }
     
-    /// get product name
-    ///
-    /// - Returns: current product name
-    public func getProductName() -> String {
-        if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
-            return String()
-        }
-        
-        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
-        for (_, value) in objects {
-            let isa = value["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let productName = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                if (!productName.isEmpty) {
-                    return productName
-                }
-            }
-        }
-        return String()
-    }
-    
     /// Update project's bundleid
     ///
     /// - Parameter bundleid: bundleid, eg: cn.zhengshoudong.xxx
@@ -860,29 +830,6 @@ public struct XcodeManager {
                 }
             }
         }
-    }
-    
-    
-    /// Get project current bundleid
-    ///
-    /// - Returns: return bundleid. (If has error, will return empty string.)
-    public func getBundleId() -> String {
-        if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
-            return String()
-        }
-        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
-        for (_, value) in objects {
-            let isa = value["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (!productBundleIdentifier.isEmpty) {
-                    return productBundleIdentifier
-                }
-            }
-        }
-        return String()
     }
     
     /// Update project's codeSign style
@@ -935,6 +882,50 @@ public struct XcodeManager {
         self._cacheProjet["objects"] = JSON(objects)
     }
     
+    /// Get project bundleid
+    ///
+    /// - Returns: return bundleid. (If has error, will return empty string.)
+    public func getBundleId() -> String {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return String()
+        }
+        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        for (_, value) in objects {
+            let isa = value["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                if (!productBundleIdentifier.isEmpty) {
+                    return productBundleIdentifier
+                }
+            }
+        }
+        return String()
+    }
+    
+    /// Get product name
+    ///
+    /// - Returns: current product name.(If has error, will return empty string)
+    public func getProductName() -> String {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return String()
+        }
+        
+        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        for (_, value) in objects {
+            let isa = value["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                let productName = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                if (!productName.isEmpty) {
+                    return productName
+                }
+            }
+        }
+        return String()
+    }
     
     /// Save the project to file
     ///
