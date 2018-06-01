@@ -59,7 +59,7 @@ public struct XcodeManager {
     }
     
     fileprivate enum XcodeManagerError: Error {
-        case invalidParameter(code: Int, reason: String)
+        case invalidParameter(code: Int , reason: String)
         case failedInitialized(code :Int, reason: String)
     }
     
@@ -73,10 +73,10 @@ public struct XcodeManager {
         }
     }
     
-    /// parseProjectFile
+    /// parse ProjectFile
     fileprivate mutating func parseProject(_ filePath: String) throws -> JSON {
         if (!FileManager.default.fileExists(atPath: filePath)) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             throw XcodeManagerError.invalidParameter(code: 600, reason: "the file not found!")
         }
         
@@ -104,9 +104,9 @@ public struct XcodeManager {
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
             self._rootObjectUUID = self._cacheProjet["rootObject"].stringValue
-            let obj = self._cacheProjet["objects"]
-            self._mainGroupUUID = obj[self._rootObjectUUID]["mainGroup"].stringValue
-            for ele in obj {
+            let objects = self._cacheProjet["objects"]
+            self._mainGroupUUID = objects[self._rootObjectUUID]["mainGroup"].stringValue
+            for ele in objects {
                 let valueObj = ele.1
                 if (!valueObj.isEmpty) {
                     if (valueObj["isa"].stringValue == "PBXNativeTarget" &&
@@ -147,7 +147,7 @@ public struct XcodeManager {
                 try txt.write(to: fileURL, atomically: true, encoding: .utf8)
                 return true
             } catch {
-                xcodeManagerPrintLog("translate chinese characters to mathematical symbols error: \(error.localizedDescription)", type: .error)
+                xcodeManagerPrintLog("Translate chinese characters to mathematical symbols error: \(error.localizedDescription)", type: .error)
                 return false
             }
         }
@@ -157,7 +157,7 @@ public struct XcodeManager {
             try data.write(to: url, options: .atomic)
             return handleEncode(fileURL: url)
         } catch {
-            xcodeManagerPrintLog("save project file failed: \(error.localizedDescription)", type: .error)
+            xcodeManagerPrintLog("Save project file failed: \(error.localizedDescription)", type: .error)
             return false
         }
     }
@@ -206,7 +206,7 @@ public struct XcodeManager {
     /// - Returns: return a new uuid with added 'PBX' group
     fileprivate mutating func generatePBXGroup(name: String) -> String {
         if (name.isEmpty) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return String()
         }
         let newUUID = self.generateUuid()
@@ -313,12 +313,12 @@ public struct XcodeManager {
     /// - Parameter staticLibraryFilePath: static lib file path
     public mutating func addStaticLibraryToProject(_ staticLibraryFilePath: String) {
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (staticLibraryFilePath.isEmpty || !FileManager.default.fileExists(atPath: staticLibraryFilePath)) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         
@@ -384,12 +384,12 @@ public struct XcodeManager {
     /// - Parameter frameworkFilePath: framework path
     public mutating func addFrameworkToProject(_ frameworkFilePath: String) {
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (frameworkFilePath.isEmpty || !FileManager.default.fileExists(atPath: frameworkFilePath)) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         
@@ -454,12 +454,12 @@ public struct XcodeManager {
     /// - Parameter folderPath: folder path
     public mutating func addFolderToProject(_ folderPath: String) {
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (folderPath.isEmpty || !FileManager.default.fileExists(atPath: folderPath)) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         
@@ -520,12 +520,12 @@ public struct XcodeManager {
     /// - Parameter filePath: resources file
     public mutating func addFileToProject(_ filePath: String) {
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (filePath.isEmpty || !FileManager.default.fileExists(atPath: filePath)) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         
@@ -587,12 +587,12 @@ public struct XcodeManager {
     public mutating func addNewFrameworkSearchPathValue(_ newPath: String) {
         
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (newPath.isEmpty) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         
@@ -689,12 +689,12 @@ public struct XcodeManager {
     public mutating func addNewLibrarySearchPathValue(_ newPath: String) {
         
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (newPath.isEmpty) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         
@@ -787,12 +787,12 @@ public struct XcodeManager {
     /// - Parameter productName: productName
     public mutating func updateProductName(_ productName: String) {
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (productName.isEmpty) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
@@ -814,17 +814,40 @@ public struct XcodeManager {
         }
     }
     
+    /// get product name
+    ///
+    /// - Returns: current product name
+    public func getProductName() -> String {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return String()
+        }
+        
+        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        for (_, value) in objects {
+            let isa = value["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                let productName = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                if (!productName.isEmpty) {
+                    return productName
+                }
+            }
+        }
+        return String()
+    }
+    
     /// Update project's bundleid
     ///
     /// - Parameter bundleid: bundleid, eg: com.zhengshoudong.xxx
     public mutating func updateBundleId(_ bundleid: String) {
         if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
         }
         
         if (bundleid.isEmpty) {
-            xcodeManagerPrintLog("Please check the parameters!", type: .error)
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
@@ -833,8 +856,8 @@ public struct XcodeManager {
             let isa = dict["isa"].string ?? String()
             if (isa == "XCBuildConfiguration") {
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (!PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
+                let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                if (!productBundleIdentifier.isEmpty) {
                     // 回写
                     buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleid)
                     dict["buildSettings"] = JSON(buildSettings)
@@ -846,6 +869,28 @@ public struct XcodeManager {
         }
     }
     
+    
+    /// Get project current bundleid
+    ///
+    /// - Returns: return bundleid. (If has error, will return empty string.)
+    public func getBundleId() -> String {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
+            return String()
+        }
+        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        for (_, value) in objects {
+            let isa = value["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                if (!productBundleIdentifier.isEmpty) {
+                    return productBundleIdentifier
+                }
+            }
+        }
+        return String()
+    }
     
     /// Update project's codeSign style
     ///
