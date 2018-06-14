@@ -47,7 +47,7 @@ public struct XcodeManager {
     /// need to print log ?
     fileprivate var _isPrintLog = true
     
-    public enum CodeSignStyleType: String{
+    public enum CodeSignStyleType: String {
         case automatic = "Automatic"
         case manual = "Manual"
     }
@@ -234,7 +234,7 @@ public struct XcodeManager {
     }
     
     /// detection file type
-    fileprivate mutating func detectType(path: String) -> String {
+    fileprivate mutating func detectionType(path: String) -> String {
         if (path.isEmpty) {
             return "unknown"
         }
@@ -334,7 +334,7 @@ public struct XcodeManager {
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
-            if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
+            if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
                 return
             }
@@ -405,7 +405,7 @@ public struct XcodeManager {
         var uuid = String() // 临时uuid
         /// 比较是否和当前工程中的obj一致
         for (key, value) in objects {
-            if (value.dictionaryValue.isEqualTo(dict: dict)) {
+            if (value == JSON(dict)) {
                 // 这就是要找的obj, 移除掉并且标记一下当前的uuid
                 if let _ = objects.removeValue(forKey: key) {
                     // 外部的object移除成功
@@ -486,7 +486,7 @@ public struct XcodeManager {
         }
         
         for object in objects {
-            if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
+            if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
                 return
             }
@@ -529,7 +529,7 @@ public struct XcodeManager {
     /// Remove framework to project
     ///
     /// - Parameter frameworkFilePath: framework path
-    public mutating func removeFrameworkToProject(_ frameworkFilePath: String) {
+    public mutating func removeFramework(_ frameworkFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -556,7 +556,7 @@ public struct XcodeManager {
         var uuid = String() // 临时uuid
         /// 比较是否和当前工程中的obj一致
         for (key, value) in objects {
-            if (value.dictionaryValue.isEqualTo(dict: dict)) {
+            if (value == JSON(dict)) {
                 // 这就是要找的obj, 移除掉并且标记一下当前的uuid
                 if let _ = objects.removeValue(forKey: key) {
                     // 外部的object移除成功
@@ -639,7 +639,7 @@ public struct XcodeManager {
         
         /// 比较是否和当前工程中的obj一致
         for object in objects {
-            if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
+            if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
                 return
             }
@@ -692,7 +692,7 @@ public struct XcodeManager {
         let PBXFileReferenceUUID = generateUuid()
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
-        dict["lastKnownFileType"] = self.detectType(path: filePath)
+        dict["lastKnownFileType"] = self.detectionType(path: filePath)
         dict["sourceTree"] = "<group>"
         dict["name"] = filePath.split(separator: "/").last ?? filePath
         dict["path"] = filePath
@@ -705,7 +705,7 @@ public struct XcodeManager {
         
         /// 比较是否和当前工程中的已存在的object一致
         for object in objects {
-            if (object.value.dictionaryValue.isEqualTo(dict: dict)) {
+            if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
                 return
             }
