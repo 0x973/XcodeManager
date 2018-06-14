@@ -319,7 +319,6 @@ public struct XcodeManager {
             return
         }
         
-        let PBXFileReferenceUUID = generateUuid()
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
         dict["lastKnownFileType"] = "archive.ar"
@@ -342,6 +341,7 @@ public struct XcodeManager {
         }
         
         // 单个.a文件单元添加
+        let PBXFileReferenceUUID = generateUuid()
         objects[PBXFileReferenceUUID] = JSON(dict)
         
         // 作为库引用的指针树
@@ -383,7 +383,7 @@ public struct XcodeManager {
             return
         }
         
-        if (staticLibraryFilePath.isEmpty || !FileManager.default.fileExists(atPath: staticLibraryFilePath)) {
+        if (staticLibraryFilePath.isEmpty) {
             xcodeManagerPrintLog("Please check parameters!", type: .error)
             return
         }
@@ -420,30 +420,40 @@ public struct XcodeManager {
             return
         }
         
-        // uuid不为空即为找到了指定的obj并移除掉了
         // 检索"PBXFrameworksBuildPhase"
         for (key, value) in objects {
             var obj = value.dictionaryObject ?? Dictionary()
-            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
-                var files = obj["files"] as? Array<String> ?? Array()
-                if (files.isEmpty) {
-                    xcodeManagerPrintLog("`files` parse error!", type: .error)
-                    return
-                }
-                var index = 0
-                for ele in files {
-                    index = index + 1
-                    if (ele == uuid) {
-                        files.remove(at: index)
-                        obj["files"] = files
-                        // 移除完毕, 开始回写缓存
-                        objects[key] = JSON(obj)
+            if (obj.isEmpty) {
+                continue
+            }
+            let isa = obj["isa"] as? String ?? String()
+            if (isa.isEmpty) {
+                continue
+            }
+            
+            if (isa == "PBXBuildFile") {
+                let fileRef = obj["fileRef"] as? String ?? String()
+                if (fileRef == uuid) {
+                    // 找到指针树,移除并回写
+                    if let _ = objects.removeValue(forKey: key) {
                         self._cacheProjet["objects"] = JSON(objects)
-                        return
                     }
                 }
             }
+            
+            if (isa == "PBXFrameworksBuildPhase") {
+                let fileUuids = obj["files"] as? Array<String> ?? Array()
+                if (fileUuids.isEmpty) {
+                    xcodeManagerPrintLog("`files` parse error!", type: .error)
+                    continue
+                }
+                obj["files"] = fileUuids.filter{ $0 != uuid }
+                // 移除完毕, 开始回写缓存
+                objects[key] = JSON(obj)
+                self._cacheProjet["objects"] = JSON(objects)
+            }
         }
+        
         /// !!! 注意:此处未删除LIBRARY_SEARCH_PATHS中的任何值,因为可能会有其他库文件在使用
         /// !!! LIBRARY_SEARCH_PATHS中即使没有库在使用留着也无关紧要
     }
@@ -462,7 +472,6 @@ public struct XcodeManager {
             return
         }
         
-        let PBXFileReferenceUUID = generateUuid()
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
         dict["lastKnownFileType"] = "wrapper.framework"
@@ -484,6 +493,7 @@ public struct XcodeManager {
         }
         
         // 单个单元添加
+        let PBXFileReferenceUUID = generateUuid()
         objects[PBXFileReferenceUUID] = JSON(dict)
         
         // 作为库引用的指针树
@@ -499,14 +509,12 @@ public struct XcodeManager {
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             
-            if (!obj.isEmpty) {
-                if obj["isa"] as? String == "PBXFrameworksBuildPhase" {
-                    var files = obj["files"] as? Array<String> ?? Array()
-                    files.append(PBXBuildFileUUID)
-                    obj["files"] = files
-                    /// 写入缓存PBXFrameworksBuildPhase的缓存
-                    objects[object.key] = JSON(obj)
-                }
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                var files = obj["files"] as? Array<String> ?? Array()
+                files.append(PBXBuildFileUUID)
+                obj["files"] = files
+                /// 写入缓存PBXFrameworksBuildPhase的缓存
+                objects[object.key] = JSON(obj)
                 
             }
         }
@@ -516,6 +524,89 @@ public struct XcodeManager {
         // 写入当前的路径到FrameworkSearchPath
         let newPath = frameworkFilePath.replacingOccurrences(of: frameworkFilePath.split(separator: "/").last ?? "", with: "")
         self.addNewFrameworkSearchPathValue(newPath)
+    }
+    
+    /// Remove framework to project
+    ///
+    /// - Parameter frameworkFilePath: framework path
+    public mutating func removeFrameworkToProject(_ frameworkFilePath: String) {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
+            return
+        }
+        
+        if (frameworkFilePath.isEmpty) {
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
+            return
+        }
+        
+        var dict = Dictionary<String, Any>()
+        dict["isa"] = "PBXFileReference"
+        dict["lastKnownFileType"] = "wrapper.framework"
+        dict["sourceTree"] = "<group>"
+        dict["name"] = frameworkFilePath.split(separator: "/").last ?? frameworkFilePath
+        dict["path"] = frameworkFilePath
+        
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
+            return
+        }
+        
+        var uuid = String() // 临时uuid
+        /// 比较是否和当前工程中的obj一致
+        for (key, value) in objects {
+            if (value.dictionaryValue.isEqualTo(dict: dict)) {
+                // 这就是要找的obj, 移除掉并且标记一下当前的uuid
+                if let _ = objects.removeValue(forKey: key) {
+                    // 外部的object移除成功
+                    uuid = key
+                }
+                break
+            }
+        }
+        
+        if (uuid.isEmpty) {
+            xcodeManagerPrintLog("uuid is empty!", type: .error)
+            return
+        }
+        
+        
+        // 检索"PBXFrameworksBuildPhase"
+        for (key, value) in objects {
+            var obj = value.dictionaryObject ?? Dictionary()
+            if (obj.isEmpty) {
+                continue
+            }
+            let isa = obj["isa"] as? String ?? String()
+            if (isa.isEmpty) {
+                continue
+            }
+            if (isa == "PBXBuildFile") {
+                let fileRef = obj["fileRef"] as? String ?? String()
+                if (fileRef == uuid) {
+                    // 找到指针树,移除并回写
+                    if let _ = objects.removeValue(forKey: key) {
+                        self._cacheProjet["objects"] = JSON(objects)
+                    }
+                }
+            }
+            
+            if (isa == "PBXFrameworksBuildPhase") {
+                let fileUuids = obj["files"] as? Array<String> ?? Array()
+                if (fileUuids.isEmpty) {
+                    xcodeManagerPrintLog("`files` parse error!", type: .error)
+                    continue
+                }
+                
+                obj["files"] = fileUuids.filter{ $0 != uuid }
+                // 移除完毕, 开始回写缓存
+                objects[key] = JSON(obj)
+                self._cacheProjet["objects"] = JSON(objects)
+            }
+        }
+        /// !!! 注意:此处未删除FRAMEWORK_SEARCH_PATHS中的任何值,因为可能会有其他库文件在使用
+        /// !!! FRAMEWORK_SEARCH_PATHS中即使没有库在使用留着也无关紧要
     }
     
     /// Add folder to project
