@@ -234,7 +234,7 @@ public struct XcodeManager {
     }
     
     /// detection file type
-    fileprivate mutating func detectLastType(path: String) -> String {
+    fileprivate mutating func detectType(path: String) -> String {
         if (path.isEmpty) {
             return "unknown"
         }
@@ -307,7 +307,7 @@ public struct XcodeManager {
     
     /// Add static library to project
     ///
-    /// - Parameter staticLibraryFilePath: static lib file path
+    /// - Parameter staticLibraryFilePath: static library file path
     public mutating func addStaticLibraryToProject(_ staticLibraryFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
@@ -371,6 +371,81 @@ public struct XcodeManager {
         // 写入当前的路径到LibrarySearchPath
         let newPath = staticLibraryFilePath.replacingOccurrences(of: staticLibraryFilePath.split(separator: "/").last ?? "", with: "")
         self.addNewLibrarySearchPathValue(newPath)
+    }
+    
+    
+    /// Remove a static library
+    ///
+    /// - Parameter staticLibraryFilePath: static library file path
+    public mutating func removeStaticLibrary(_ staticLibraryFilePath: String) {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
+            return
+        }
+        
+        if (staticLibraryFilePath.isEmpty || !FileManager.default.fileExists(atPath: staticLibraryFilePath)) {
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
+            return
+        }
+        
+        /// 生成要找的obj然后进行匹配
+        var dict = Dictionary<String, Any>()
+        dict["isa"] = "PBXFileReference"
+        dict["lastKnownFileType"] = "archive.ar"
+        dict["sourceTree"] = "<group>"
+        dict["name"] = staticLibraryFilePath.split(separator: "/").last ?? staticLibraryFilePath
+        dict["path"] = staticLibraryFilePath
+        
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
+            return
+        }
+        
+        var uuid = String() // 临时uuid
+        /// 比较是否和当前工程中的obj一致
+        for (key, value) in objects {
+            if (value.dictionaryValue.isEqualTo(dict: dict)) {
+                // 这就是要找的obj, 移除掉并且标记一下当前的uuid
+                if let _ = objects.removeValue(forKey: key) {
+                    // 外部的object移除成功
+                    uuid = key
+                }
+                break
+            }
+        }
+        
+        if (uuid.isEmpty) {
+            xcodeManagerPrintLog("uuid is empty!", type: .error)
+            return
+        }
+        
+        // uuid不为空即为找到了指定的obj并移除掉了
+        // 检索"PBXFrameworksBuildPhase"
+        for (key, value) in objects {
+            var obj = value.dictionaryObject ?? Dictionary()
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                var files = obj["files"] as? Array<String> ?? Array()
+                if (files.isEmpty) {
+                    xcodeManagerPrintLog("`files` parse error!", type: .error)
+                    return
+                }
+                var index = 0
+                for ele in files {
+                    index = index + 1
+                    if (ele == uuid) {
+                        files.remove(at: index)
+                        obj["files"] = files
+                        // 移除完毕, 开始回写缓存
+                        objects[key] = JSON(obj)
+                        self._cacheProjet["objects"] = JSON(objects)
+                        return
+                    }
+                }
+            }
+        }
+        /// !!! 注意:此处未删除LIBRARY_SEARCH_PATHS中的任何值,因为可能会有其他库文件在使用
+        /// !!! LIBRARY_SEARCH_PATHS中即使没有库在使用留着也无关紧要
     }
     
     /// Add framework to project
@@ -526,7 +601,7 @@ public struct XcodeManager {
         let PBXFileReferenceUUID = generateUuid()
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
-        dict["lastKnownFileType"] = self.detectLastType(path: filePath)
+        dict["lastKnownFileType"] = self.detectType(path: filePath)
         dict["sourceTree"] = "<group>"
         dict["name"] = filePath.split(separator: "/").last ?? filePath
         dict["path"] = filePath
@@ -767,6 +842,153 @@ public struct XcodeManager {
         }
     }
     
+    /// Remove FrameworkSearchPath Value
+    ///
+    /// - Parameter removePath: path
+    public mutating func removeFrameworkSearchPathValue(_ removePath: String) {
+        
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
+            return
+        }
+        
+        if (removePath.isEmpty) {
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
+            return
+        }
+        
+        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
+            return
+        }
+        
+        for element in objects {
+            var dict = element.value
+            let isa = dict["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                if (buildSettings.isEmpty) {
+                    continue
+                }
+                
+                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
+                    continue
+                }
+                
+                // 可确认就是需要的object
+                let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
+                let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
+                switch varType {
+                case .string:
+                    // 如果为字符串类型,说明当前有且只有一个value!
+                    // 添加时候需要取出来然后变成数组放回去
+                    let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
+                    if (removePath == string) {
+                        // 要添加的和已经存在的一致, 直接回写FRAMEWORK_SEARCH_PATHS默认值
+                        var newArray = Array<String>()
+                        newArray.append("$(inherited)")
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                    }
+                    break
+                case .array:
+                    // 当前如果本身就是个数组,过滤不需要的数值并回写
+                    let newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
+                    let array = newArray.filter { $0.stringValue != removePath }
+                    // 回写
+                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(array)
+                    dict["buildSettings"] = JSON(buildSettings)
+                    self._cacheProjet["objects"][element.key] = dict
+                    break
+                default:
+                    // 不存在,恢复默认值
+                    var newArray = Array<String>()
+                    newArray.append("$(inherited)")
+                    // 回写
+                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
+                    dict["buildSettings"] = JSON(buildSettings)
+                    self._cacheProjet["objects"][element.key] = dict
+                    break
+                }
+            }
+        }
+    }
+    
+    /// Remove LibrarySearchPath Value
+    ///
+    /// - Parameter removePath: path
+    public mutating func removeLibrarySearchPathValue(_ removePath: String) {
+        
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
+            return
+        }
+        
+        if (removePath.isEmpty) {
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
+            return
+        }
+        
+        let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
+            return
+        }
+        
+        for element in objects {
+            var dict = element.value
+            let isa = dict["isa"].string ?? String()
+            if (isa == "XCBuildConfiguration") {
+                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                if (buildSettings.isEmpty) {
+                    continue
+                }
+                
+                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
+                    continue
+                }
+                
+                let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
+                let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
+                switch varType {
+                case .string:
+                    // 如果为字符串类型,说明当前有且只有一个value!
+                    let string = LIBRARY_SEARCH_PATHS?.string ?? String()
+                    if (removePath == string) {
+                        // 要删除的和已经存在的一致, 直接设置为默认
+                        buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(["$(inherited)"])
+                        dict["buildSettings"] = JSON(buildSettings)
+                        self._cacheProjet["objects"][element.key] = dict
+                    }
+                    break
+                case .array:
+                    // 当前如果本身就是个数组,过滤不需要的数值并回写
+                    let newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
+                    let array = newArray.filter { $0.stringValue != removePath }
+                    // 回写
+                    buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(array)
+                    dict["buildSettings"] = JSON(buildSettings)
+                    self._cacheProjet["objects"][element.key] = dict
+                    break
+                default:
+                    // 不存在,创建并恢复默认值
+                    var newArray = Array<String>()
+                    newArray.append("$(inherited)")
+                    // 回写
+                    buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
+                    dict["buildSettings"] = JSON(buildSettings)
+                    self._cacheProjet["objects"][element.key] = dict
+                    break
+                }
+            }
+        }
+    }
     
     /// Update Product Name
     ///
@@ -952,16 +1174,17 @@ public struct XcodeManager {
     
     
     fileprivate func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogType = .info) {
-        if (self._isPrintLog) {
-            let msg = message as? String ?? String()
-            if (!msg.isEmpty) {
-                print("[\(type.rawValue)] \(msg)")
-            }
+        if (!self._isPrintLog) {
+            return
+        }
+        
+        let msg = message as? String ?? String()
+        if (!msg.isEmpty) {
+            print("[\(type.rawValue)] \(msg)")
         }
     }
     
 }
-
 
 extension Dictionary {
     fileprivate func isEqualTo(dict:[String: Any]) -> Bool {
