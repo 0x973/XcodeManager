@@ -131,7 +131,7 @@ public struct XcodeManager {
     }
     
     
-    fileprivate func saveProject(fileURL: URL, withPropertyList list: Any) -> Bool{
+    fileprivate func saveProject(fileURL: URL, withPropertyList list: Any) -> Bool {
         let url = fileURL
         
         func handleEncode(fileURL: URL) -> Bool {

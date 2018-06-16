@@ -14,7 +14,7 @@ This swift module lets you automate the modification process.
 
 #### Swift Package Manager
 ```swift
-.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.1.0")
+.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.1.1")
 ```
 
 #### Carthage
