@@ -34,40 +34,49 @@ import SwiftyJSON
 public struct XcodeManager {
     
     /// cached in memory
-    fileprivate var _cacheProjet: JSON = JSON()
-    fileprivate var _hashTag: Int = Int()
-    fileprivate var _filePath: String = String()
+    private var _cacheProjet: JSON = JSON()
+    private var _hashTag: Int = Int()
+    private var _filePath: String = String()
     
     /// main group UUID
-    fileprivate var _mainGroupUUID: String = String()
+    private var _mainGroupUUID: String = String()
     /// root object uuid
-    fileprivate var _rootObjectUUID: String = String()
+    private var _rootObjectUUID: String = String()
     /// current project name
-    fileprivate var _currentProjectName: String = String()
-    /// need to print log ?
-    fileprivate var _isPrintLog = true
+    private var _currentProjectName: String = String()
+    /// need to print the log ?
+    private var _isPrintLog = true
     
     public enum CodeSignStyleType: String {
         case automatic = "Automatic"
         case manual = "Manual"
     }
     
-    fileprivate enum XcodeManagerLogType: String {
+    private enum XcodeManagerLogType: String {
         case debug = "XcodeManagerDebug"
         case info = "XcodeManagerInfo"
         case error = "XcodeManagerError"
     }
     
-    fileprivate enum XcodeManagerError: Error {
+    private enum XcodeManagerError: Error {
         case invalidParameter(code: Int , reason: String)
         case failedInitialized(code :Int, reason: String)
     }
     
     public init(projectFile: String, printLog: Bool = true) throws {
-        self._filePath = projectFile
         self._isPrintLog = printLog
         do {
-            _ = try self.parseProject(self._filePath)
+            _ = try self.parseProject(projectFile)
+        }catch {
+            xcodeManagerPrintLog("\(error)", type: .error)
+            throw error
+        }
+    }
+    
+    public mutating func initProject(projectFile: String, printLog: Bool = true) throws {
+        self._isPrintLog = printLog
+        do {
+            _ = try self.parseProject(projectFile)
         }catch {
             xcodeManagerPrintLog("\(error)", type: .error)
             throw error
@@ -75,10 +84,11 @@ public struct XcodeManager {
     }
     
     /// parse ProjectFile
-    fileprivate mutating func parseProject(_ filePath: String) throws -> JSON {
-        if (!FileManager.default.fileExists(atPath: filePath)) {
+    private mutating func parseProject(_ filePath: String) throws -> JSON {
+        
+        if (filePath.isEmpty || !FileManager.default.fileExists(atPath: filePath)) {
             xcodeManagerPrintLog("Please check parameters!", type: .error)
-            throw XcodeManagerError.invalidParameter(code: 600, reason: "the file not found!")
+            throw XcodeManagerError.invalidParameter(code: 600, reason: "file not found!")
         }
         
         var fileUrl = URL(fileURLWithPath: filePath)
@@ -94,13 +104,14 @@ public struct XcodeManager {
         do {
             let fileData = try Data(contentsOf: fileUrl)
             
-            let hashValue = fileData.hashValue
-            if (self._hashTag == hashValue && !self._cacheProjet.isEmpty) {
+            let totalHashValue = fileData.hashValue ^ filePath.hashValue &* 1024
+            
+            if (self._hashTag == totalHashValue && !self._cacheProjet.isEmpty) {
                 return self._cacheProjet
             }
             
             self._filePath = filePath
-            self._hashTag = hashValue
+            self._hashTag = totalHashValue
             
             let data = try PropertyListSerialization.propertyList(from: fileData, options: .mutableContainersAndLeaves, format: nil)
             self._cacheProjet = JSON(data)
@@ -110,8 +121,8 @@ public struct XcodeManager {
             self._mainGroupUUID = rootObject["mainGroup"]?.string ?? String()
             
             if (rootObject.isEmpty || self._mainGroupUUID.isEmpty) {
-                xcodeManagerPrintLog("read project file failed. error: the file data is incomplete", type: .error)
-                throw XcodeManagerError.failedInitialized(code: 601, reason: "the file data is incomplete!")
+                xcodeManagerPrintLog("read project file failed. error: file data is incomplete", type: .error)
+                throw XcodeManagerError.failedInitialized(code: 601, reason: "file data is incomplete!")
             }
             
             for (_, value) in rootObject {
@@ -130,8 +141,7 @@ public struct XcodeManager {
         }
     }
     
-    
-    fileprivate func saveProject(fileURL: URL, withPropertyList list: Any) -> Bool {
+    private func saveProject(fileURL: URL, withPropertyList list: Any) -> Bool {
         let url = fileURL
         
         func handleEncode(fileURL: URL) -> Bool {
@@ -167,8 +177,8 @@ public struct XcodeManager {
         }
     }
     
-    /// get all objects uuid
-    fileprivate func allUuids(_ projectDict: JSON) -> Array<String> {
+    /// Get all objects uuid
+    private func allUuids(_ projectDict: JSON) -> Array<String> {
         let objects = projectDict["objects"].dictionaryObject ?? Dictionary()
         
         var uuids = Array<String>()
@@ -183,8 +193,8 @@ public struct XcodeManager {
     }
     
     
-    /// generate a new uuid
-    fileprivate func generateUuid() -> String {
+    /// Generate a new uuid
+    private func generateUuid() -> String {
         if (self._cacheProjet.isEmpty) {
             // cache empty!
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
@@ -204,7 +214,7 @@ public struct XcodeManager {
     ///
     /// - Parameter name: needed generate the 'PBX' group
     /// - Returns: return a new uuid with added 'PBX' group
-    fileprivate mutating func generatePBXGroup(name: String) -> String {
+    private mutating func generatePBXGroup(name: String) -> String {
         if (name.isEmpty) {
             xcodeManagerPrintLog("Please check parameters!", type: .error)
             return String()
@@ -234,7 +244,7 @@ public struct XcodeManager {
     }
     
     /// detection file type
-    fileprivate mutating func detectionType(path: String) -> String {
+    private func detectionType(path: String) -> String {
         if (path.isEmpty) {
             return "unknown"
         }
@@ -525,6 +535,7 @@ public struct XcodeManager {
         let newPath = frameworkFilePath.replacingOccurrences(of: frameworkFilePath.split(separator: "/").last ?? "", with: "")
         self.addNewFrameworkSearchPathValue(newPath)
     }
+    
     
     /// Remove framework to project
     ///
@@ -856,7 +867,6 @@ public struct XcodeManager {
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         if (objects.isEmpty) {
             xcodeManagerPrintLog("Parsed objects error!", type: .error)
-            
             return
         }
         
@@ -1243,7 +1253,7 @@ public struct XcodeManager {
     /// Save the project to file
     ///
     /// - Returns: Saved the result
-    public mutating func save() -> Bool {
+    public func save() -> Bool {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
             return false
@@ -1263,15 +1273,15 @@ public struct XcodeManager {
         return self.saveProject(fileURL: fileUrl, withPropertyList: dict)
     }
     
-    
-    fileprivate func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogType = .info) {
+    private func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogType = .info,
+                                         file: String = #file, line: Int = #line, method: String = #function) {
         if (!self._isPrintLog) {
             return
         }
         
         let msg = message as? String ?? String()
         if (!msg.isEmpty) {
-            print("[\(type.rawValue)] \(msg)")
+            print("[\(type.rawValue)] [\(URL(fileURLWithPath: file).lastPathComponent):\(line)] \(method): \(msg)")
         }
     }
     
