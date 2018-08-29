@@ -14,13 +14,13 @@ This swift module lets you automate the modification process.
 
 #### Swift Package Manager
 ```swift
-.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.1.1")
+.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.1.3")
 ```
 
 #### Carthage
 You can use [Carthage](https://github.com/Carthage/Carthage) to install `XcodeManager` by adding it to your Cartfile:
 ```
-github "ZhengShouDong/XcodeManager" ~> 0.1.0
+github "ZhengShouDong/XcodeManager" ~> 0.1.3
 ```
 
 ## Usage
@@ -39,55 +39,56 @@ var project = try? XcodeManager(projectFile: "../.../projectTest.xcodeproj", pri
 2. How to add static library in Xcode project?
 
 ```swift
-project.addStaticLibraryToProject("../.../test.a")
+project.linkStaticLibrary("../.../test.a")
 ```
 
 3. How to add framework in Xcode project?
 
 ```swift
-project.addFrameworkToProject("../.../test.framework")
+project.linkFramework("../.../test.framework")
 ```
 
 4. How to add resources folder in Xcode project?
 
 ```swift
-project.addFolderToProject("../.../test/")
+project.addFolder("../.../test/")
 ```
 
 5. How to add a single resources file in Xcode project?
 
 ```swift
-project.addFileToProject("../.../test.txt")
+project.addFile("../.../test.txt")
 ```
 
 6. How to modify the product name (display name)?
 
 ```swift
-project.updateProductName("TestProduct")
+project.setProductName("TestProduct")
 ```
 
 7. How to modify the bundle id?
 
 ```swift
-project.updateBundleId("cn.zhengshoudong.TestProduct")
+project.setBundleId("cn.zhengshoudong.TestProduct")
 ```
 
 8. How to add new <Library Search Paths> value?
 
 ```swift
-project.addNewLibrarySearchPathValue("$(PROJECT_DIR)/TestProduct/Folder")
+project.setLibrarySearchPathValue("$(PROJECT_DIR)/TestProduct/Folder")
 ```
 
 9. How to add new <Framework Search Paths> value?
 
 ```swift
-project.addNewFrameworkSearchPathValue("$(PROJECT_DIR)/TestProduct/Folder")
+project.setFrameworkSearchPathValue("$(PROJECT_DIR)/TestProduct/Folder")
 ```
 
 10. How to control the CodeSignStyle(manual OR automatic)?
 
 ```swift
-project.updateCodeSignStyle(type: .manual)
+project.setCodeSignStyle(type: .automatic)
+project.setCodeSignStyle(type: .manual)
 ```
 
 11. Complete modification? Write to a .pbxproj file!
