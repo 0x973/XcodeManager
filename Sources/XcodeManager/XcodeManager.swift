@@ -44,7 +44,7 @@ public struct XcodeManager {
     private var _rootObjectUUID: String = String()
     /// current project name
     private var _currentProjectName: String = String()
-    /// need to print the log ?
+    /// need print log ?
     private var _isPrintLog = true
     
     public enum CodeSignStyleType: String {
@@ -178,7 +178,7 @@ public struct XcodeManager {
     }
     
     /// Get all objects uuid
-    private func allUuids(_ projectDict: JSON) -> Array<String> {
+    private func getAllUUIDs(_ projectDict: JSON) -> Array<String> {
         let objects = projectDict["objects"].dictionaryObject ?? Dictionary()
         
         var uuids = Array<String>()
@@ -194,7 +194,7 @@ public struct XcodeManager {
     
     
     /// Generate a new uuid
-    private func generateUuid() -> String {
+    private func generateUUID() -> String {
         if (self._cacheProjet.isEmpty) {
             // cache empty!
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
@@ -202,9 +202,9 @@ public struct XcodeManager {
         }
         
         let uuid = UUID().uuidString.replacingOccurrences(of: "-", with: "").suffix(24).uppercased()
-        let array = self.allUuids(self._cacheProjet)
+        let array = self.getAllUUIDs(self._cacheProjet)
         if (array.index(of: uuid) ?? -1 >= 0) {
-            return generateUuid()
+            return generateUUID()
         }
         return uuid
     }
@@ -219,7 +219,7 @@ public struct XcodeManager {
             xcodeManagerPrintLog("Please check parameters!", type: .error)
             return String()
         }
-        let newUUID = self.generateUuid()
+        let newUUID = self.generateUUID()
         let newDict = [
             "children": [],
             "isa": "PBXGroup",
@@ -315,10 +315,78 @@ public struct XcodeManager {
     }
     
     
+    /// Add framework to project
+    ///
+    /// - Parameter frameworkFilePath: framework path
+    public mutating func linkFramework(_ frameworkFilePath: String) {
+        if (self._cacheProjet.isEmpty) {
+            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
+            return
+        }
+        
+        if (frameworkFilePath.isEmpty || !FileManager.default.fileExists(atPath: frameworkFilePath)) {
+            xcodeManagerPrintLog("Please check parameters!", type: .error)
+            return
+        }
+        
+        var dict = Dictionary<String, Any>()
+        dict["isa"] = "PBXFileReference"
+        dict["lastKnownFileType"] = "wrapper.framework"
+        dict["sourceTree"] = "<group>"
+        dict["name"] = frameworkFilePath.split(separator: "/").last ?? frameworkFilePath
+        dict["path"] = frameworkFilePath
+        
+        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
+        if (objects.isEmpty) {
+            xcodeManagerPrintLog("Parsed objects error!", type: .error)
+            return
+        }
+        
+        for object in objects {
+            if (object.value == JSON(dict)) {
+                xcodeManagerPrintLog("current object already exists.")
+                return
+            }
+        }
+        
+        
+        let PBXFileReferenceUUID = generateUUID()
+        objects[PBXFileReferenceUUID] = JSON(dict)
+        
+        
+        let PBXBuildFileUUID = generateUUID()
+        var dict2 = Dictionary<String, Any>()
+        dict2["fileRef"] = PBXFileReferenceUUID
+        dict2["isa"] = "PBXBuildFile"
+        dict["settings"] = ["ATTRIBUTES": ["Required"]] // Required OR Weak
+        
+        objects[PBXBuildFileUUID] = JSON(dict2)
+        
+        
+        for object in objects {
+            var obj = object.value.dictionaryObject ?? Dictionary()
+            
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                var files = obj["files"] as? Array<String> ?? Array()
+                files.append(PBXBuildFileUUID)
+                obj["files"] = files
+                
+                objects[object.key] = JSON(obj)
+                
+            }
+        }
+        
+        self._cacheProjet["objects"] = JSON(objects)
+        
+        let newPath = frameworkFilePath.replacingOccurrences(of: frameworkFilePath.split(separator: "/").last ?? "", with: "")
+        self.setFrameworkSearchPathValue(newPath)
+    }
+    
+    
     /// Add static library to project
     ///
     /// - Parameter staticLibraryFilePath: static library file path
-    public mutating func addStaticLibraryToProject(_ staticLibraryFilePath: String) {
+    public mutating func linkStaticLibrary(_ staticLibraryFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -342,7 +410,6 @@ public struct XcodeManager {
             return
         }
         
-        /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
@@ -350,20 +417,16 @@ public struct XcodeManager {
             }
         }
         
-        // 单个.a文件单元添加
-        let PBXFileReferenceUUID = generateUuid()
+        let PBXFileReferenceUUID = generateUUID()
         objects[PBXFileReferenceUUID] = JSON(dict)
         
-        // 作为库引用的指针树
-        let PBXBuildFileUUID = generateUuid()
+        let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
         dict2["fileRef"] = PBXFileReferenceUUID
         dict2["isa"] = "PBXBuildFile"
         dict["settings"] = ["ATTRIBUTES": ["Required"]]  // Required OR Weak
-        /// 写入缓存BuildFile的缓存
         objects[PBXBuildFileUUID] = JSON(dict2)
         
-        /// 检索"PBXFrameworksBuildPhase"
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             
@@ -375,19 +438,17 @@ public struct XcodeManager {
                 objects[object.key] = JSON(obj)
             }
         }
-        // 回写缓存
         self._cacheProjet["objects"] = JSON(objects)
         
-        // 写入当前的路径到LibrarySearchPath
         let newPath = staticLibraryFilePath.replacingOccurrences(of: staticLibraryFilePath.split(separator: "/").last ?? "", with: "")
-        self.addNewLibrarySearchPathValue(newPath)
+        self.setLibrarySearchPathValue(newPath)
     }
     
     
     /// Remove a static library
     ///
     /// - Parameter staticLibraryFilePath: static library file path
-    public mutating func removeStaticLibrary(_ staticLibraryFilePath: String) {
+    public mutating func unlinkStaticLibrary(_ staticLibraryFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -398,7 +459,6 @@ public struct XcodeManager {
             return
         }
         
-        /// 生成要找的obj然后进行匹配
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
         dict["lastKnownFileType"] = "archive.ar"
@@ -412,13 +472,13 @@ public struct XcodeManager {
             return
         }
         
-        var uuid = String() // 临时uuid
-        /// 比较是否和当前工程中的obj一致
+        var uuid = String()
+        
         for (key, value) in objects {
             if (value == JSON(dict)) {
-                // 这就是要找的obj, 移除掉并且标记一下当前的uuid
+                
                 if let _ = objects.removeValue(forKey: key) {
-                    // 外部的object移除成功
+                    
                     uuid = key
                 }
                 break
@@ -468,79 +528,11 @@ public struct XcodeManager {
         /// !!! LIBRARY_SEARCH_PATHS中即使没有库在使用留着也无关紧要
     }
     
-    /// Add framework to project
-    ///
-    /// - Parameter frameworkFilePath: framework path
-    public mutating func addFrameworkToProject(_ frameworkFilePath: String) {
-        if (self._cacheProjet.isEmpty) {
-            xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
-            return
-        }
-        
-        if (frameworkFilePath.isEmpty || !FileManager.default.fileExists(atPath: frameworkFilePath)) {
-            xcodeManagerPrintLog("Please check parameters!", type: .error)
-            return
-        }
-        
-        var dict = Dictionary<String, Any>()
-        dict["isa"] = "PBXFileReference"
-        dict["lastKnownFileType"] = "wrapper.framework"
-        dict["sourceTree"] = "<group>"
-        dict["name"] = frameworkFilePath.split(separator: "/").last ?? frameworkFilePath
-        dict["path"] = frameworkFilePath
-        
-        var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
-        if (objects.isEmpty) {
-            xcodeManagerPrintLog("Parsed objects error!", type: .error)
-            return
-        }
-        
-        for object in objects {
-            if (object.value == JSON(dict)) {
-                xcodeManagerPrintLog("current object already exists.")
-                return
-            }
-        }
-        
-        // 单个单元添加
-        let PBXFileReferenceUUID = generateUuid()
-        objects[PBXFileReferenceUUID] = JSON(dict)
-        
-        // 作为库引用的指针树
-        let PBXBuildFileUUID = generateUuid()
-        var dict2 = Dictionary<String, Any>()
-        dict2["fileRef"] = PBXFileReferenceUUID
-        dict2["isa"] = "PBXBuildFile"
-        dict["settings"] = ["ATTRIBUTES": ["Required"]] // Required OR Weak
-        /// 写入缓存BuildFile的缓存
-        objects[PBXBuildFileUUID] = JSON(dict2)
-        
-        /// 检索"PBXFrameworksBuildPhase"
-        for object in objects {
-            var obj = object.value.dictionaryObject ?? Dictionary()
-            
-            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
-                var files = obj["files"] as? Array<String> ?? Array()
-                files.append(PBXBuildFileUUID)
-                obj["files"] = files
-                /// 写入缓存PBXFrameworksBuildPhase的缓存
-                objects[object.key] = JSON(obj)
-                
-            }
-        }
-        // 回写缓存
-        self._cacheProjet["objects"] = JSON(objects)
-        
-        // 写入当前的路径到FrameworkSearchPath
-        let newPath = frameworkFilePath.replacingOccurrences(of: frameworkFilePath.split(separator: "/").last ?? "", with: "")
-        self.addNewFrameworkSearchPathValue(newPath)
-    }
-    
     
     /// Remove framework to project
     ///
     /// - Parameter frameworkFilePath: framework path
-    public mutating func removeFramework(_ frameworkFilePath: String) {
+    public mutating func unlinkFramework(_ frameworkFilePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -564,13 +556,12 @@ public struct XcodeManager {
             return
         }
         
-        var uuid = String() // 临时uuid
-        /// 比较是否和当前工程中的obj一致
+        var uuid = String()
+        
         for (key, value) in objects {
             if (value == JSON(dict)) {
-                // 这就是要找的obj, 移除掉并且标记一下当前的uuid
+                
                 if let _ = objects.removeValue(forKey: key) {
-                    // 外部的object移除成功
                     uuid = key
                 }
                 break
@@ -623,7 +614,7 @@ public struct XcodeManager {
     /// Add folder to project
     ///
     /// - Parameter folderPath: folder path
-    public mutating func addFolderToProject(_ folderPath: String) {
+    public mutating func addFolder(_ folderPath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -634,7 +625,7 @@ public struct XcodeManager {
             return
         }
         
-        let PBXFileReferenceUUID = generateUuid()
+        let PBXFileReferenceUUID = generateUUID()
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
         dict["lastKnownFileType"] = "folder"
@@ -648,7 +639,6 @@ public struct XcodeManager {
             return
         }
         
-        /// 比较是否和当前工程中的obj一致
         for object in objects {
             if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
@@ -656,18 +646,14 @@ public struct XcodeManager {
             }
         }
         
-        // 添加引用单元
         objects[PBXFileReferenceUUID] = JSON(dict)
         
-        // 作为库引用的指针树
-        let PBXBuildFileUUID = generateUuid()
+        let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
         dict2["fileRef"] = PBXFileReferenceUUID
         dict2["isa"] = "PBXBuildFile"
-        /// 写入缓存BuildFile的缓存
         objects[PBXBuildFileUUID] = JSON(dict2)
         
-        /// 检索"PBXResourcesBuildPhase"
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             
@@ -676,12 +662,10 @@ public struct XcodeManager {
                     var files = obj["files"] as? Array<String> ?? Array()
                     files.append(PBXBuildFileUUID)
                     obj["files"] = files
-                    /// 写入缓存PBXFrameworksBuildPhase的缓存
                     objects[object.key] = JSON(obj)
                 }
             }
         }
-        // 回写缓存
         self._cacheProjet["objects"] = JSON(objects)
     }
     
@@ -689,7 +673,7 @@ public struct XcodeManager {
     /// Add resources file to Project (Copy Bundle Rsources)
     ///
     /// - Parameter filePath: resources file
-    public mutating func addFileToProject(_ filePath: String) {
+    public mutating func addFile(_ filePath: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -700,7 +684,7 @@ public struct XcodeManager {
             return
         }
         
-        let PBXFileReferenceUUID = generateUuid()
+        let PBXFileReferenceUUID = generateUUID()
         var dict = Dictionary<String, Any>()
         dict["isa"] = "PBXFileReference"
         dict["lastKnownFileType"] = self.detectionType(path: filePath)
@@ -714,7 +698,6 @@ public struct XcodeManager {
             return
         }
         
-        /// 比较是否和当前工程中的已存在的object一致
         for object in objects {
             if (object.value == JSON(dict)) {
                 xcodeManagerPrintLog("current object already exists.")
@@ -722,18 +705,14 @@ public struct XcodeManager {
             }
         }
         
-        // 单个文件单元添加
         objects[PBXFileReferenceUUID] = JSON(dict)
         
-        // 作为库引用的指针树
-        let PBXBuildFileUUID = generateUuid()
+        let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
         dict2["fileRef"] = PBXFileReferenceUUID
         dict2["isa"] = "PBXBuildFile"
-        /// 写入缓存BuildFile的缓存
         objects[PBXBuildFileUUID] = JSON(dict2)
         
-        /// 检索"PBXResourcesBuildPhase"
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             
@@ -742,12 +721,10 @@ public struct XcodeManager {
                     var files = obj["files"] as? Array<String> ?? Array()
                     files.append(PBXBuildFileUUID)
                     obj["files"] = files
-                    /// 写入缓存PBXFrameworksBuildPhase的缓存
                     objects[object.key] = JSON(obj)
                 }
             }
         }
-        // 回写缓存
         self._cacheProjet["objects"] = JSON(objects)
     }
     
@@ -755,7 +732,7 @@ public struct XcodeManager {
     /// Add FrameworkSearchPath Value
     ///
     /// - Parameter newPath: path
-    public mutating func addNewFrameworkSearchPathValue(_ newPath: String) {
+    public mutating func setFrameworkSearchPathValue(_ newPath: String) {
         
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
@@ -789,16 +766,12 @@ public struct XcodeManager {
                         continue
                     }
                     
-                    // 可确认就是需要的object
                     let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
                     let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
                     switch varType {
                     case .string:
-                        // 如果为字符串类型,说明当前有且只有一个value!
-                        // 添加时候需要取出来然后变成数组放回去
                         let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
                         if (newPath == string) {
-                            // 要添加的和已经存在的一致
                             xcodeManagerPrintLog("current object already exists.")
                             return
                         }
@@ -812,10 +785,8 @@ public struct XcodeManager {
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     case .array:
-                        // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
                         var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
                         
-                        // 判断是否已经有相同value存在
                         for ele in newArray {
                             let str = ele.string ?? String()
                             if (str == newPath) {
@@ -825,19 +796,16 @@ public struct XcodeManager {
                         
                         newArray.append(JSON(newPath))
                         
-                        // 回写
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         
                         break
                     default:
-                        // 不存在,创建并追加
                         var newArray = Array<String>()
                         newArray.append("$(inherited)")
                         newArray.append(newPath)
                         
-                        // 回写
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
@@ -852,7 +820,7 @@ public struct XcodeManager {
     /// Add LibrarySearchPath Value
     ///
     /// - Parameter newPath: path
-    public mutating func addNewLibrarySearchPathValue(_ newPath: String) {
+    public mutating func setLibrarySearchPathValue(_ newPath: String) {
         
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
@@ -886,16 +854,12 @@ public struct XcodeManager {
                         continue
                     }
                     
-                    // 以下即可确认就是需要的那个object!
                     let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
                     let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
                     switch varType {
                     case .string:
-                        // 如果为字符串类型,说明当前有且只有一个value!
-                        // 添加时候需要取出来然后变成数组放回去
                         let string = LIBRARY_SEARCH_PATHS?.string ?? String()
                         if (newPath == string) {
-                            // 要添加的和已经存在的一致
                             xcodeManagerPrintLog("current object already exists.")
                             return
                         }
@@ -903,16 +867,13 @@ public struct XcodeManager {
                         newArray.append(string)
                         newArray.append(newPath)
                         
-                        // 回写
                         buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     case .array:
-                        // 当前如果本身就是个数组,说明当前已经有多个值了,追加进去新的数值
                         var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
                         
-                        // 判断是否已经有相同value存在
                         for ele in newArray {
                             let str = ele.string ?? String()
                             if (str == newPath) {
@@ -922,18 +883,15 @@ public struct XcodeManager {
                         
                         newArray.append(JSON(newPath))
                         
-                        // 回写
                         buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     default:
-                        // 不存在,创建并追加
                         var newArray = Array<String>()
                         newArray.append("$(inherited)")
                         newArray.append(newPath)
                         
-                        // 回写
                         buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
@@ -979,16 +937,12 @@ public struct XcodeManager {
                     continue
                 }
                 
-                // 可确认就是需要的object
                 let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
                 let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
                 switch varType {
                 case .string:
-                    // 如果为字符串类型,说明当前有且只有一个value!
-                    // 添加时候需要取出来然后变成数组放回去
                     let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
                     if (removePath == string) {
-                        // 要添加的和已经存在的一致, 直接回写FRAMEWORK_SEARCH_PATHS默认值
                         var newArray = Array<String>()
                         newArray.append("$(inherited)")
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
@@ -997,19 +951,15 @@ public struct XcodeManager {
                     }
                     break
                 case .array:
-                    // 当前如果本身就是个数组,过滤不需要的数值并回写
                     let newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
                     let array = newArray.filter { $0.stringValue != removePath }
-                    // 回写
                     buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(array)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
                 default:
-                    // 不存在,恢复默认值
                     var newArray = Array<String>()
                     newArray.append("$(inherited)")
-                    // 回写
                     buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
@@ -1059,29 +1009,23 @@ public struct XcodeManager {
                 let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
                 switch varType {
                 case .string:
-                    // 如果为字符串类型,说明当前有且只有一个value!
                     let string = LIBRARY_SEARCH_PATHS?.string ?? String()
                     if (removePath == string) {
-                        // 要删除的和已经存在的一致, 直接设置为默认
                         buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(["$(inherited)"])
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                     }
                     break
                 case .array:
-                    // 当前如果本身就是个数组,过滤不需要的数值并回写
                     let newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
                     let array = newArray.filter { $0.stringValue != removePath }
-                    // 回写
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(array)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
                 default:
-                    // 不存在,创建并恢复默认值
                     var newArray = Array<String>()
                     newArray.append("$(inherited)")
-                    // 回写
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
@@ -1094,7 +1038,7 @@ public struct XcodeManager {
     /// Update Product Name
     ///
     /// - Parameter productName: productName
-    public mutating func updateProductName(_ productName: String) {
+    public mutating func setProductName(_ productName: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -1112,7 +1056,6 @@ public struct XcodeManager {
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                 let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
                 if (!PRODUCT_NAME.isEmpty) {
-                    // 回写
                     buildSettings["PRODUCT_NAME"] = JSON(productName)
                     dict["buildSettings"] = JSON(buildSettings)
                     let uuidKey = element.key
@@ -1126,7 +1069,7 @@ public struct XcodeManager {
     /// Update project's bundleid
     ///
     /// - Parameter bundleid: bundleid, eg: cn.zhengshoudong.xxx
-    public mutating func updateBundleId(_ bundleid: String) {
+    public mutating func setBundleId(_ bundleid: String) {
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use function 'init()' initialize!", type: .error)
             return
@@ -1144,7 +1087,6 @@ public struct XcodeManager {
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                 let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
                 if (!productBundleIdentifier.isEmpty) {
-                    // 回写
                     buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleid)
                     dict["buildSettings"] = JSON(buildSettings)
                     let uuidKey = element.key
@@ -1158,7 +1100,7 @@ public struct XcodeManager {
     /// Update project's codeSign style
     ///
     /// - Parameter type: enum CodeSignStyleType
-    public mutating func updateCodeSignStyle(type: CodeSignStyleType) {
+    public mutating func setCodeSignStyle(type: CodeSignStyleType) {
         
         if (self._cacheProjet.isEmpty) {
             xcodeManagerPrintLog("Please use the 'init()' initialize!", type: .error)
@@ -1173,7 +1115,6 @@ public struct XcodeManager {
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                 let CODE_SIGN_STYLE = buildSettings["CODE_SIGN_STYLE"]?.string ?? String()
                 if (!CODE_SIGN_STYLE.isEmpty) {
-                    // 回写
                     buildSettings["CODE_SIGN_STYLE"] = JSON(type.rawValue)
                     dict["buildSettings"] = JSON(buildSettings)
                     let uuidKey = element.key
@@ -1198,7 +1139,6 @@ public struct XcodeManager {
         }
         
         if (!newTargetAttributes.isEmpty) {
-            // 回写
             objects[self._rootObjectUUID]!["attributes"]["TargetAttributes"] = JSON(newTargetAttributes)
         }
         
