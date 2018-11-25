@@ -14,13 +14,13 @@ This swift module lets you automate the modification process.
 
 #### Swift Package Manager
 ```swift
-.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.1.3")
+.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.2.0")
 ```
 
 #### Carthage
 You can use [Carthage](https://github.com/Carthage/Carthage) to install `XcodeManager` by adding it to your Cartfile:
 ```
-github "ZhengShouDong/XcodeManager" ~> 0.1.3
+github "ZhengShouDong/XcodeManager" ~> 0.2.0
 ```
 
 ## Usage
@@ -33,7 +33,7 @@ import XcodeManager
 1. Initialize the Xcode project file.
 
 ```swift
-var project = try? XcodeManager(projectFile: "../.../projectTest.xcodeproj", printLog: true)
+var project = try? XcodeManager(projectFile: "../.../xxx.xcodeproj", printLog: true)
 ```
 
 2. How to add static library in Xcode project?
@@ -66,7 +66,7 @@ project.addFile("../.../test.txt")
 project.setProductName("TestProduct")
 ```
 
-7. How to modify the bundle id?
+7. How to modify the Bundle Identifier?
 
 ```swift
 project.setBundleId("cn.zhengshoudong.TestProduct")
@@ -94,7 +94,7 @@ project.setCodeSignStyle(type: .manual)
 11. Complete modification? Write to a .pbxproj file!
 
 ```swift
-let isSaveSuccess = project.save()
+let isSaveSuccess = try? project.save()
 if (isSaveSuccess) {
 	print("Done!")
 }
