@@ -31,7 +31,7 @@
 import Foundation
 
 internal struct XcodeManagerFile {
-    /// detection file type
+    
     public func detectionType(path: String) -> String {
         if (path.isEmpty) {
             return "unknown"

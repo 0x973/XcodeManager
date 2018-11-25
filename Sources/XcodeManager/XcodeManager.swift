@@ -240,7 +240,8 @@ public struct XcodeManager {
     /// - Parameter frameworkFilePath: framework path
     public mutating func linkFramework(_ frameworkFilePath: String) {
         assert(!self._cacheProjet.isEmpty, "Uninitialized!")
-        assert(!frameworkFilePath.isEmpty && FileManager.default.fileExists(atPath: frameworkFilePath), "Invalid parameters")
+        assert(!frameworkFilePath.isEmpty && FileManager.default.fileExists(atPath: frameworkFilePath),
+               "Invalid parameters")
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
@@ -251,38 +252,35 @@ public struct XcodeManager {
         dict["sourceTree"] = "<group>"
         dict["name"] = frameworkFilePath.split(separator: "/").last ?? frameworkFilePath
         dict["path"] = frameworkFilePath
-
+        let jsonObj = JSON(dict)
+        
         for object in objects {
-            if (object.value == JSON(dict)) {
+            if (object.value == jsonObj) {
                 _logger.xcodeManagerPrintLog("Current object already exists.")
                 return
             }
         }
         
         let PBXFileReferenceUUID = generateUUID()
-        objects[PBXFileReferenceUUID] = JSON(dict)
-        
+        objects[PBXFileReferenceUUID] = jsonObj
         
         let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
         dict2["fileRef"] = PBXFileReferenceUUID
         dict2["isa"] = "PBXBuildFile"
-        dict["settings"] = ["ATTRIBUTES": ["Required"]] // Required OR Weak
-        
+        dict2["settings"] = ["ATTRIBUTES": ["Required"]] // Required OR Weak
         objects[PBXBuildFileUUID] = JSON(dict2)
         
-        
         for object in objects {
-            var obj = object.value.dictionaryObject ?? Dictionary()
-            
-            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
-                var files = obj["files"] as? Array<String> ?? Array()
-                files.append(PBXBuildFileUUID)
-                obj["files"] = files
-                
-                objects[object.key] = JSON(obj)
-                
+            if var obj = object.value.dictionaryObject {
+                if (obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                    var files = obj["files"] as? Array<String> ?? Array()
+                    files.append(PBXBuildFileUUID)
+                    obj["files"] = files
+                    objects[object.key] = JSON(obj)
+                }
             }
+            
         }
         
         self._cacheProjet["objects"] = JSON(objects)
@@ -300,7 +298,7 @@ public struct XcodeManager {
         
         assert(!staticLibraryFilePath.isEmpty && FileManager.default.fileExists(atPath: staticLibraryFilePath),
                "Invalid parameters")
-
+        
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
         
@@ -310,33 +308,33 @@ public struct XcodeManager {
         dict["sourceTree"] = "<group>"
         dict["name"] = staticLibraryFilePath.split(separator: "/").last ?? staticLibraryFilePath
         dict["path"] = staticLibraryFilePath
+        let jsonObj = JSON(dict)
         
         for object in objects {
-            if (object.value == JSON(dict)) {
+            if (object.value == jsonObj) {
                 _logger.xcodeManagerPrintLog("Current object already exists.")
                 return
             }
         }
         
         let PBXFileReferenceUUID = generateUUID()
-        objects[PBXFileReferenceUUID] = JSON(dict)
+        objects[PBXFileReferenceUUID] = jsonObj
         
         let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
         dict2["fileRef"] = PBXFileReferenceUUID
         dict2["isa"] = "PBXBuildFile"
-        dict["settings"] = ["ATTRIBUTES": ["Required"]]  // Required OR Weak
+        dict2["settings"] = ["ATTRIBUTES": ["Required"]] // Required OR Weak
         objects[PBXBuildFileUUID] = JSON(dict2)
         
         for object in objects {
-            var obj = object.value.dictionaryObject ?? Dictionary()
-            
-            if (!obj.isEmpty && obj["isa"] as? String == "PBXFrameworksBuildPhase") {
-                var files = obj["files"] as? Array<String> ?? Array()
-                files.append(PBXBuildFileUUID)
-                obj["files"] = files
-                /// 写入缓存PBXFrameworksBuildPhase的缓存
-                objects[object.key] = JSON(obj)
+            if var obj = object.value.dictionaryObject {
+                if (obj["isa"] as? String == "PBXFrameworksBuildPhase") {
+                    var files = obj["files"] as? Array<String> ?? Array()
+                    files.append(PBXBuildFileUUID)
+                    obj["files"] = files
+                    objects[object.key] = JSON(obj)
+                }
             }
         }
         self._cacheProjet["objects"] = JSON(objects)
@@ -362,11 +360,11 @@ public struct XcodeManager {
         dict["sourceTree"] = "<group>"
         dict["name"] = staticLibraryFilePath.split(separator: "/").last ?? staticLibraryFilePath
         dict["path"] = staticLibraryFilePath
+        let jsonObj = JSON(dict)
         
         var uuid = String()
-        
         for (key, value) in objects {
-            if (value == JSON(dict)) {
+            if (value == jsonObj) {
                 if let _ = objects.removeValue(forKey: key) {
                     uuid = key
                 }
@@ -381,40 +379,33 @@ public struct XcodeManager {
         
         // 检索"PBXFrameworksBuildPhase"
         for (key, value) in objects {
-            var obj = value.dictionaryObject ?? Dictionary()
-            if (obj.isEmpty) {
-                continue
-            }
-            let isa = obj["isa"] as? String ?? String()
-            if (isa.isEmpty) {
-                continue
-            }
-            
-            if (isa == "PBXBuildFile") {
-                let fileRef = obj["fileRef"] as? String ?? String()
-                if (fileRef == uuid) {
-                    // 找到指针树,移除并回写
-                    if let _ = objects.removeValue(forKey: key) {
-                        self._cacheProjet["objects"] = JSON(objects)
+            if var obj = value.dictionaryObject {
+                if let isa = obj["isa"] as? String {
+                    
+                    if (isa == "PBXBuildFile") {
+                        if let fileRef = obj["fileRef"] as? String {
+                            if (fileRef == uuid) {
+                                // 找到指针树,移除并回写
+                                if let _ = objects.removeValue(forKey: key) {
+                                    self._cacheProjet["objects"] = JSON(objects)
+                                }
+                            }
+                        }
                     }
+                    
+                    if (isa == "PBXFrameworksBuildPhase") {
+                        if let fileUuids = obj["files"] as? Array<String> {
+                            obj["files"] = fileUuids.filter{ $0 != uuid }
+                            // 移除完毕, 开始回写缓存
+                            objects[key] = JSON(obj)
+                            self._cacheProjet["objects"] = JSON(objects)
+                        }
+                    }
+                    /// !!! 注意:此处未删除LIBRARY_SEARCH_PATHS中的任何值,因为可能会有其他库文件在使用
+                    /// !!! LIBRARY_SEARCH_PATHS中即使没有库在使用留着也无关紧要
                 }
-            }
-            
-            if (isa == "PBXFrameworksBuildPhase") {
-                let fileUuids = obj["files"] as? Array<String> ?? Array()
-                if (fileUuids.isEmpty) {
-                    _logger.xcodeManagerPrintLog("`files` parse error!", type: .error)
-                    continue
-                }
-                obj["files"] = fileUuids.filter{ $0 != uuid }
-                // 移除完毕, 开始回写缓存
-                objects[key] = JSON(obj)
-                self._cacheProjet["objects"] = JSON(objects)
             }
         }
-        
-        /// !!! 注意:此处未删除LIBRARY_SEARCH_PATHS中的任何值,因为可能会有其他库文件在使用
-        /// !!! LIBRARY_SEARCH_PATHS中即使没有库在使用留着也无关紧要
     }
     
     
@@ -434,11 +425,11 @@ public struct XcodeManager {
         dict["sourceTree"] = "<group>"
         dict["name"] = frameworkFilePath.split(separator: "/").last ?? frameworkFilePath
         dict["path"] = frameworkFilePath
+        let jsonObj = JSON(dict)
         
         var uuid = String()
         for (key, value) in objects {
-            if (value == JSON(dict)) {
-                
+            if (value == jsonObj) {
                 if let _ = objects.removeValue(forKey: key) {
                     uuid = key
                 }
@@ -450,7 +441,6 @@ public struct XcodeManager {
             _logger.xcodeManagerPrintLog("uuid is empty!", type: .error)
             return
         }
-        
         
         // 检索"PBXFrameworksBuildPhase"
         for (key, value) in objects {
@@ -505,16 +495,17 @@ public struct XcodeManager {
         dict["sourceTree"] = "<group>"
         dict["name"] = folderPath.split(separator: "/").last ?? folderPath
         dict["path"] = folderPath
+        let jsonObj = JSON(dict)
         
         for object in objects {
-            if (object.value == JSON(dict)) {
-                _logger.xcodeManagerPrintLog("current object already exists.")
+            if (object.value == jsonObj) {
+                _logger.xcodeManagerPrintLog("Current object already exists.")
                 return
             }
         }
         
         let PBXFileReferenceUUID = generateUUID()
-        objects[PBXFileReferenceUUID] = JSON(dict)
+        objects[PBXFileReferenceUUID] = jsonObj
         
         let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
@@ -524,14 +515,11 @@ public struct XcodeManager {
         
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
-            
-            if (!obj.isEmpty) {
-                if obj["isa"] as? String == "PBXResourcesBuildPhase" {
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXResourcesBuildPhase") {
                     var files = obj["files"] as? Array<String> ?? Array()
                     files.append(PBXBuildFileUUID)
                     obj["files"] = files
                     objects[object.key] = JSON(obj)
-                }
             }
         }
         self._cacheProjet["objects"] = JSON(objects)
@@ -544,7 +532,7 @@ public struct XcodeManager {
     public mutating func addFile(_ filePath: String) {
         assert(!self._cacheProjet.isEmpty, "Uninitialized!")
         assert(!filePath.isEmpty && FileManager.default.fileExists(atPath: filePath), "Invalid parameters!")
-
+        
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
         
@@ -554,16 +542,17 @@ public struct XcodeManager {
         dict["sourceTree"] = "<group>"
         dict["name"] = filePath.split(separator: "/").last ?? filePath
         dict["path"] = filePath
+        let jsonObj = JSON(dict)
         
         for object in objects {
-            if (object.value == JSON(dict)) {
-                _logger.xcodeManagerPrintLog("current object already exists.")
+            if (object.value == jsonObj) {
+                _logger.xcodeManagerPrintLog("Current object already exists.")
                 return
             }
         }
         
         let PBXFileReferenceUUID = generateUUID()
-        objects[PBXFileReferenceUUID] = JSON(dict)
+        objects[PBXFileReferenceUUID] = jsonObj
         
         let PBXBuildFileUUID = generateUUID()
         var dict2 = Dictionary<String, Any>()
@@ -573,14 +562,11 @@ public struct XcodeManager {
         
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
-            
-            if (!obj.isEmpty) {
-                if obj["isa"] as? String == "PBXResourcesBuildPhase" {
-                    var files = obj["files"] as? Array<String> ?? Array()
-                    files.append(PBXBuildFileUUID)
-                    obj["files"] = files
-                    objects[object.key] = JSON(obj)
-                }
+            if (!obj.isEmpty && obj["isa"] as? String == "PBXResourcesBuildPhase") {
+                var files = obj["files"] as? Array<String> ?? Array()
+                files.append(PBXBuildFileUUID)
+                obj["files"] = files
+                objects[object.key] = JSON(obj)
             }
         }
         self._cacheProjet["objects"] = JSON(objects)
@@ -600,39 +586,34 @@ public struct XcodeManager {
         objectsFor:
             for element in objects {
                 var dict = element.value
-                let isa = dict["isa"].string ?? String()
-                if (isa == "XCBuildConfiguration") {
+                if let isa = dict["isa"].string {
+                    if (isa != "XCBuildConfiguration") {
+                        continue
+                    }
                     var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                     if (buildSettings.isEmpty) {
                         continue
                     }
                     
-                    let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                    let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                    if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
-                        continue
-                    }
-                    
-                    let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
-                    let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
+                    let frameworkSearchPaths = buildSettings["FRAMEWORK_SEARCH_PATHS"]
+                    let varType = frameworkSearchPaths?.type ?? Type.unknown
                     switch varType {
                     case .string:
-                        let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
+                        let string = frameworkSearchPaths?.string ?? String()
                         if (newPath == string) {
-                            _logger.xcodeManagerPrintLog("current object already exists.")
+                            _logger.xcodeManagerPrintLog("Current object already exists.")
                             return
                         }
                         var newArray = Array<String>()
                         newArray.append(string)
                         newArray.append(newPath)
                         
-                        // 回写
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     case .array:
-                        var newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
+                        var newArray = frameworkSearchPaths?.array ?? Array()
                         
                         for ele in newArray {
                             let str = ele.string ?? String()
@@ -646,7 +627,6 @@ public struct XcodeManager {
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
-                        
                         break
                     default:
                         var newArray = Array<String>()
@@ -656,7 +636,6 @@ public struct XcodeManager {
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                         dict["buildSettings"] = JSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
-                        
                         break
                     }
                 }
@@ -677,26 +656,23 @@ public struct XcodeManager {
         objectsFor:
             for element in objects {
                 var dict = element.value
-                let isa = dict["isa"].string ?? String()
-                if (isa == "XCBuildConfiguration") {
+                if let isa = dict["isa"].string {
+                    if (isa != "XCBuildConfiguration") {
+                        continue
+                    }
+                    
                     var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                     if (buildSettings.isEmpty) {
                         continue
                     }
                     
-                    let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                    let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                    if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
-                        continue
-                    }
-                    
-                    let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
-                    let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
+                    let librarySearchPaths = buildSettings["LIBRARY_SEARCH_PATHS"]
+                    let varType = librarySearchPaths?.type ?? Type.unknown
                     switch varType {
                     case .string:
-                        let string = LIBRARY_SEARCH_PATHS?.string ?? String()
+                        let string = librarySearchPaths?.string ?? String()
                         if (newPath == string) {
-                            _logger.xcodeManagerPrintLog("current object already exists.")
+                            _logger.xcodeManagerPrintLog("Current object already exists.")
                             return
                         }
                         var newArray = Array<String>()
@@ -708,7 +684,7 @@ public struct XcodeManager {
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     case .array:
-                        var newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
+                        var newArray = librarySearchPaths?.array ?? Array()
                         
                         for ele in newArray {
                             let str = ele.string ?? String()
@@ -749,24 +725,21 @@ public struct XcodeManager {
         
         for element in objects {
             var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
+            if let isa = dict["isa"].string {
+                if (isa != "XCBuildConfiguration") {
+                    continue
+                }
+                
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                 if (buildSettings.isEmpty) {
                     continue
                 }
                 
-                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
-                    continue
-                }
-                
-                let FRAMEWORK_SEARCH_PATHS = buildSettings["FRAMEWORK_SEARCH_PATHS"]
-                let varType = FRAMEWORK_SEARCH_PATHS?.type ?? Type.unknown
+                let framework_search_paths = buildSettings["FRAMEWORK_SEARCH_PATHS"]
+                let varType = framework_search_paths?.type ?? Type.unknown
                 switch varType {
                 case .string:
-                    let string = FRAMEWORK_SEARCH_PATHS?.string ?? String()
+                    let string = framework_search_paths?.string ?? String()
                     if (removePath == string) {
                         var newArray = Array<String>()
                         newArray.append("$(inherited)")
@@ -776,15 +749,14 @@ public struct XcodeManager {
                     }
                     break
                 case .array:
-                    let newArray = FRAMEWORK_SEARCH_PATHS?.array ?? Array()
+                    let newArray = framework_search_paths?.array ?? Array()
                     let array = newArray.filter { $0.stringValue != removePath }
                     buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(array)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
                 default:
-                    var newArray = Array<String>()
-                    newArray.append("$(inherited)")
+                    let newArray = ["$(inherited)"]
                     buildSettings["FRAMEWORK_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
@@ -806,24 +778,21 @@ public struct XcodeManager {
         
         for element in objects {
             var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
+            if let isa = dict["isa"].string {
+                if (isa != "XCBuildConfiguration") {
+                    continue
+                }
+                
                 var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                 if (buildSettings.isEmpty) {
                     continue
                 }
                 
-                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                let PRODUCT_BUNDLE_IDENTIFIER = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (PRODUCT_NAME.isEmpty && PRODUCT_BUNDLE_IDENTIFIER.isEmpty) {
-                    continue
-                }
-                
-                let LIBRARY_SEARCH_PATHS = buildSettings["LIBRARY_SEARCH_PATHS"]
-                let varType = LIBRARY_SEARCH_PATHS?.type ?? Type.unknown
+                let librarySearchPaths = buildSettings["LIBRARY_SEARCH_PATHS"]
+                let varType = librarySearchPaths?.type ?? Type.unknown
                 switch varType {
                 case .string:
-                    let string = LIBRARY_SEARCH_PATHS?.string ?? String()
+                    let string = librarySearchPaths?.string ?? String()
                     if (removePath == string) {
                         buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(["$(inherited)"])
                         dict["buildSettings"] = JSON(buildSettings)
@@ -831,15 +800,14 @@ public struct XcodeManager {
                     }
                     break
                 case .array:
-                    let newArray = LIBRARY_SEARCH_PATHS?.array ?? Array()
+                    let newArray = librarySearchPaths?.array ?? Array()
                     let array = newArray.filter { $0.stringValue != removePath }
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(array)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
                 default:
-                    var newArray = Array<String>()
-                    newArray.append("$(inherited)")
+                    let newArray = ["$(inherited)"]
                     buildSettings["LIBRARY_SEARCH_PATHS"] = JSON(newArray)
                     dict["buildSettings"] = JSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
@@ -860,16 +828,16 @@ public struct XcodeManager {
         assert(!objects.isEmpty, "Objects parsed error!")
         for element in objects {
             var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                if (!PRODUCT_NAME.isEmpty) {
-                    buildSettings["PRODUCT_NAME"] = JSON(productName)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    let uuidKey = element.key
-                    
-                    self._cacheProjet["objects"][uuidKey] = JSON(dict)
+            if let isa = dict["isa"].string {
+                if (isa == "XCBuildConfiguration") {
+                    var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                    if (!PRODUCT_NAME.isEmpty) {
+                        buildSettings["PRODUCT_NAME"] = JSON(productName)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        let uuidKey = element.key
+                        self._cacheProjet["objects"][uuidKey] = JSON(dict)
+                    }
                 }
             }
         }
@@ -886,15 +854,16 @@ public struct XcodeManager {
         assert(!objects.isEmpty, "Objects parsed error!")
         for element in objects {
             var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (!productBundleIdentifier.isEmpty) {
-                    buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleid)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    let uuidKey = element.key
-                    self._cacheProjet["objects"][uuidKey] = JSON(dict)
+            if let isa = dict["isa"].string {
+                if (isa == "XCBuildConfiguration") {
+                    var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                    if (!productBundleIdentifier.isEmpty) {
+                        buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleid)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        let uuidKey = element.key
+                        self._cacheProjet["objects"][uuidKey] = JSON(dict)
+                    }
                 }
             }
         }
@@ -954,12 +923,13 @@ public struct XcodeManager {
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
         for (_, value) in objects {
-            let isa = value["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
-                if (!productBundleIdentifier.isEmpty) {
-                    return productBundleIdentifier
+            if let isa = value["isa"].string {
+                if (isa == "XCBuildConfiguration") {
+                    let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
+                    if (!productBundleIdentifier.isEmpty) {
+                        return productBundleIdentifier
+                    }
                 }
             }
         }
@@ -975,12 +945,13 @@ public struct XcodeManager {
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
         for (_, value) in objects {
-            let isa = value["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let productName = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                if (!productName.isEmpty) {
-                    return productName
+            if let isa = value["isa"].string {
+                if (isa == "XCBuildConfiguration") {
+                    let buildSettings = value["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    let productName = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                    if (!productName.isEmpty) {
+                        return productName
+                    }
                 }
             }
         }
