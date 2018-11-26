@@ -39,7 +39,7 @@ public struct XcodeManager {
     private var _filePath: String = String()
     
     /// logger
-    private var _logger: XcodeManagerLogger = XcodeManagerLogger();
+    private var _logger: XcodeManagerLogger = XcodeManagerLogger()
     
     /// main group uuid
     private var _mainGroupUUID: String = String()
@@ -516,10 +516,10 @@ public struct XcodeManager {
         for object in objects {
             var obj = object.value.dictionaryObject ?? Dictionary()
             if (!obj.isEmpty && obj["isa"] as? String == "PBXResourcesBuildPhase") {
-                    var files = obj["files"] as? Array<String> ?? Array()
-                    files.append(PBXBuildFileUUID)
-                    obj["files"] = files
-                    objects[object.key] = JSON(obj)
+                var files = obj["files"] as? Array<String> ?? Array()
+                files.append(PBXBuildFileUUID)
+                obj["files"] = files
+                objects[object.key] = JSON(obj)
             }
         }
         self._cacheProjet["objects"] = JSON(objects)
@@ -831,12 +831,11 @@ public struct XcodeManager {
             if let isa = dict["isa"].string {
                 if (isa == "XCBuildConfiguration") {
                     var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                    let PRODUCT_NAME = buildSettings["PRODUCT_NAME"]?.string ?? String()
-                    if (!PRODUCT_NAME.isEmpty) {
+                    let originalProductName = buildSettings["PRODUCT_NAME"]?.string ?? String()
+                    if (!originalProductName.isEmpty) {
                         buildSettings["PRODUCT_NAME"] = JSON(productName)
                         dict["buildSettings"] = JSON(buildSettings)
-                        let uuidKey = element.key
-                        self._cacheProjet["objects"][uuidKey] = JSON(dict)
+                        self._cacheProjet["objects"][element.key] = JSON(dict)
                     }
                 }
             }
@@ -846,9 +845,9 @@ public struct XcodeManager {
     /// Update project's bundleid
     ///
     /// - Parameter bundleid: bundleid, eg: cn.zhengshoudong.xxx
-    public mutating func setBundleId(_ bundleid: String) {
+    public mutating func setBundleId(_ bundleId: String) {
         assert(!self._cacheProjet.isEmpty, "Uninitialized!")
-        assert(!bundleid.isEmpty, "Invalid parameters!")
+        assert(!bundleId.isEmpty, "Invalid parameters!")
         
         let objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
@@ -859,10 +858,9 @@ public struct XcodeManager {
                     var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
                     let productBundleIdentifier = buildSettings["PRODUCT_BUNDLE_IDENTIFIER"]?.string ?? String()
                     if (!productBundleIdentifier.isEmpty) {
-                        buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleid)
+                        buildSettings["PRODUCT_BUNDLE_IDENTIFIER"] = JSON(bundleId)
                         dict["buildSettings"] = JSON(buildSettings)
-                        let uuidKey = element.key
-                        self._cacheProjet["objects"][uuidKey] = JSON(dict)
+                        self._cacheProjet["objects"][element.key] = JSON(dict)
                     }
                 }
             }
@@ -877,17 +875,18 @@ public struct XcodeManager {
         
         var objects = self._cacheProjet["objects"].dictionary ?? Dictionary()
         assert(!objects.isEmpty, "Objects parsed error!")
-        for element in objects {
-            var dict = element.value
-            let isa = dict["isa"].string ?? String()
-            if (isa == "XCBuildConfiguration") {
-                var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
-                let CODE_SIGN_STYLE = buildSettings["CODE_SIGN_STYLE"]?.string ?? String()
-                if (!CODE_SIGN_STYLE.isEmpty) {
-                    buildSettings["CODE_SIGN_STYLE"] = JSON(type.rawValue)
-                    dict["buildSettings"] = JSON(buildSettings)
-                    let uuidKey = element.key
-                    objects[uuidKey] = JSON(dict)
+        
+        for (key, value) in objects {
+            if let isa = value["isa"].string {
+                if (isa == "XCBuildConfiguration") {
+                    var dict = value
+                    var buildSettings = dict["buildSettings"].dictionary ?? Dictionary<String, JSON>()
+                    let codeSignStyle = buildSettings["CODE_SIGN_STYLE"]?.string ?? String()
+                    if (!codeSignStyle.isEmpty) {
+                        buildSettings["CODE_SIGN_STYLE"] = JSON(type.rawValue)
+                        dict["buildSettings"] = JSON(buildSettings)
+                        objects[key] = JSON(dict)
+                    }
                 }
             }
         }

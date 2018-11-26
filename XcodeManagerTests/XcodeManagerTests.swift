@@ -54,24 +54,24 @@ class XcodeManagerTests: XCTestCase {
     
     // test ProductName get and set. finally, will reset
     func testProductName() {
-        let productName = _project?.getProductName()
-        XCTAssertEqual(productName ?? "", "$(TARGET_NAME)")
+        let productName = _project!.getProductName()
+        XCTAssertEqual(productName, "$(TARGET_NAME)")
         
-        _project?.setProductName("ProductNameTest")
-        XCTAssertEqual(_project?.getProductName() ?? "", "ProductNameTest")
+        _project!.setProductName("ProductNameTest")
+        XCTAssertEqual(_project!.getProductName(), "ProductNameTest")
         
-        _project?.setProductName(productName!)
+        _project!.setProductName(productName)
     }
     
     // test BundleId get and set. finally, will reset
     func testBundleId() {
-        let bundleId = _project?.getBundleId()
-        XCTAssertEqual(bundleId ?? "", "cn.zhengshoudong.iOSTestProject")
+        let bundleId = _project!.getBundleId()
+        XCTAssertEqual(bundleId, "cn.zhengshoudong.iOSTestProject")
         
-        _project?.setBundleId("cn.zhengshoudong.xxxx")
-        XCTAssertEqual(_project?.getBundleId() ?? "", "cn.zhengshoudong.xxxx")
+        _project!.setBundleId("cn.zhengshoudong.xxxx")
+        XCTAssertEqual(_project!.getBundleId(), "cn.zhengshoudong.xxxx")
         
-        _project?.setBundleId(bundleId!)
+        _project!.setBundleId(bundleId)
     }
     
     override func tearDown() {
