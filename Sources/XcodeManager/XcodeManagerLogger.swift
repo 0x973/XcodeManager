@@ -31,17 +31,17 @@
 import Foundation
 
 internal struct XcodeManagerLogger {
-    public var isPrintLog = true
+    public var printLog = true
     public enum XcodeManagerLogLevel: String {
         case debug = "XcodeManagerDebug"
         case info = "XcodeManagerInfo"
         case error = "XcodeManagerError"
     }
     
-    public func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogLevel = .info,
-                                        file: String = #file, line: Int = #line,
-                                        method: String = #function) {
-        if (!self.isPrintLog) { return }
+    public func xcodeManagerPrintLog<T>(_ message: T, type: XcodeManagerLogLevel = .info, file: String = #file, line: Int = #line, method: String = #function) {
+        if (!printLog) {
+            return
+        }
         
         let msg = message as? String ?? String()
         if (!msg.isEmpty) {

@@ -7,10 +7,9 @@ let package = Package(
     products: [
         .library(name: "XcodeManager", targets: ["XcodeManager"])
     ],
-    dependencies: [
-        .package(url: "https://github.com/SwiftyJSON/SwiftyJSON.git", from: "4.1.0")
-    ],
+    dependencies: [],
     targets: [
-        .target(name: "XcodeManager", dependencies: ["SwiftyJSON"])
+        .target(name: "XcodeManager"),
+        .testTarget(name: "XcodeManagerTests", dependencies: ["XcodeManager"])
     ]
 )

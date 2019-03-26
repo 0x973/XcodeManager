@@ -31,75 +31,39 @@
 import Foundation
 
 internal struct XcodeManagerFile {
+    let defaultFileType = "unknown"
+    static let fileTypeDict = ["jpeg": "image.jpg", "mp4": "video.mp4",
+                               "xib": "file.xib", "plist": "text.plist.xml",
+                               "xml": "sourcecode.xml", "png": "image.png",
+                               "txt": "text", "xcconfig": "text.xcconfig",
+                               "sh": "text.script.sh","pch": "sourcecode.c.h",
+                               "tbd": "sourcecode.text-based-dylib-definition",
+                               "m": "sourcecode.c.objc", "h": "sourcecode.c.h",
+                               "a": "archive.ar", "framework": "wrapper.framework",
+                               "html": "sourcecode.html", "json": "sourcecode.json",
+                               "dylib": "compiled.mach-o.dylib", "jpg": "image.jpg",
+                               "markdown": "text", "xcdatamodel": "wrapper.xcdatamodel",
+                               "bundle": "wrapper.plug-in", "js": "sourcecode.javascript",
+                               "swift": "sourcecode.swift", "storyboard": "file.storyboard",
+                               "app": "wrapper.application", "xcassets": "folder.assetcatalog"]
     
     public func detectionType(path: String) -> String {
         if (path.isEmpty) {
-            return "unknown"
+            return defaultFileType
         }
         
         let fileURL = URL(fileURLWithPath: path)
         
         let filePathExtension = fileURL.pathExtension
         if (!fileURL.isFileURL || filePathExtension.isEmpty) {
-            return "unknown"
+            return defaultFileType
         }
         
-        switch filePathExtension {
-        case "a" :
-            return "archive.ar"
-        case "framework" :
-            return "wrapper.framework"
-        case "xib" :
-            return "file.xib"
-        case "plist" :
-            return "text.plist.xml"
-        case "bundle" :
-            return "wrapper.plug-in"
-        case "js" :
-            return "sourcecode.javascript"
-        case "html" :
-            return "sourcecode.html"
-        case "json" :
-            return "sourcecode.json"
-        case "xml" :
-            return "sourcecode.xml"
-        case "png" :
-            return "image.png"
-        case "txt" :
-            return "text"
-        case "xcconfig" :
-            return "text.xcconfig"
-        case "markdown" :
-            return "text"
-        case "tbd" :
-            return "sourcecode.text-based-dylib-definition"
-        case "sh" :
-            return "text.script.sh"
-        case "pch" :
-            return "sourcecode.c.h"
-        case "xcdatamodel" :
-            return "wrapper.xcdatamodel"
-        case "m" :
-            return "sourcecode.c.objc"
-        case "h" :
-            return "sourcecode.c.h"
-        case "swift" :
-            return "sourcecode.swift"
-        case "storyboard" :
-            return "file.storyboard"
-        case "dylib" :
-            return "compiled.mach-o.dylib"
-        case "jpg", "jpeg" :
-            return "image.jpg"
-        case "mp4" :
-            return "video.mp4"
-        case "app" :
-            return "wrapper.application"
-        case "xcassets" :
-            return "folder.assetcatalog"
-        default :
-            return "unknown"
+        let type = XcodeManagerFile.fileTypeDict[filePathExtension] ?? String()
+        if !type.isEmpty {
+            return type
         }
+        
+        return "unknown"
     }
-    
 }
