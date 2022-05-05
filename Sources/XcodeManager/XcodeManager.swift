@@ -1,6 +1,6 @@
 //  XcodeManager.swift
 //
-//  Copyright (c) 2018, ShouDong Zheng
+//  Copyright (c) 2018, Shoudong Zheng
 //  All rights reserved.
 
 //  Redistribution and use in source and binary forms, with or without
@@ -379,7 +379,6 @@ public struct XcodeManager {
         for (key, value) in objects {
             if var obj = value.dictionaryObject {
                 if let isa = obj["isa"] as? String {
-                    
                     if (isa == "PBXBuildFile") {
                         if let fileRef = obj["fileRef"] as? String {
                             if (fileRef == uuid) {
@@ -389,9 +388,7 @@ public struct XcodeManager {
                                 }
                             }
                         }
-                    }
-                    
-                    if (isa == "PBXFrameworksBuildPhase") {
+                    } else if (isa == "PBXFrameworksBuildPhase") {
                         if let fileUuids = obj["files"] as? Array<String> {
                             obj["files"] = fileUuids.filter{ $0 != uuid }
                             // 移除完毕, 开始回写缓存
@@ -457,14 +454,11 @@ public struct XcodeManager {
             if (isa == "PBXBuildFile") {
                 let fileRef = obj["fileRef"] as? String ?? String()
                 if (fileRef == uuid) {
-                    // 找到指针树,移除并回写
                     if let _ = objects.removeValue(forKey: key) {
                         self._cacheProjet["objects"] = XcodeManagerJSON(objects)
                     }
                 }
-            }
-            
-            if (isa == "PBXFrameworksBuildPhase") {
+            } else if (isa == "PBXFrameworksBuildPhase") {
                 let fileUuids = obj["files"] as? Array<String> ?? Array()
                 if (fileUuids.isEmpty) {
                     _logger.xcodeManagerPrintLog("`files` parse error!", type: .error)
@@ -472,7 +466,6 @@ public struct XcodeManager {
                 }
                 
                 obj["files"] = fileUuids.filter{ $0 != uuid }
-                // 移除完毕, 开始回写缓存
                 objects[key] = XcodeManagerJSON(obj)
                 self._cacheProjet["objects"] = XcodeManagerJSON(objects)
             }
@@ -601,16 +594,12 @@ public struct XcodeManager {
                     let varType = frameworkSearchPaths?.type ?? Type.unknown
                     switch varType {
                     case .string:
-                        let string = frameworkSearchPaths?.string ?? String()
-                        if (newPath == string) {
+                        let frameworkSearchPath = frameworkSearchPaths?.string ?? String()
+                        if (newPath == frameworkSearchPath) {
                             _logger.xcodeManagerPrintLog("Current object already exists.")
                             return
                         }
-                        var newArray = Array<String>()
-                        newArray.append(string)
-                        newArray.append(newPath)
-                        
-                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON([frameworkSearchPath, newPath])
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
@@ -625,17 +614,12 @@ public struct XcodeManager {
                         }
                         
                         newArray.append(XcodeManagerJSON(newPath))
-                        
                         buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     default:
-                        var newArray = Array<String>()
-                        newArray.append("$(inherited)")
-                        newArray.append(newPath)
-                        
-                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(["$(inherited)", newPath])
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
@@ -672,22 +656,17 @@ public struct XcodeManager {
                     let varType = librarySearchPaths?.type ?? Type.unknown
                     switch varType {
                     case .string:
-                        let string = librarySearchPaths?.string ?? String()
-                        if (newPath == string) {
+                        let librarySearchPath = librarySearchPaths?.string ?? String()
+                        if (newPath == librarySearchPath) {
                             _logger.xcodeManagerPrintLog("Current object already exists.")
                             return
                         }
-                        var newArray = Array<String>()
-                        newArray.append(string)
-                        newArray.append(newPath)
-                        
-                        buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                        buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON([librarySearchPath, newPath])
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     case .array:
                         var newArray = librarySearchPaths?.array ?? Array()
-                        
                         for ele in newArray {
                             let str = ele.string ?? String()
                             if (str == newPath) {
@@ -696,17 +675,12 @@ public struct XcodeManager {
                         }
                         
                         newArray.append(XcodeManagerJSON(newPath))
-                        
                         buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
                     default:
-                        var newArray = Array<String>()
-                        newArray.append("$(inherited)")
-                        newArray.append(newPath)
-                        
-                        buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                        buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(["$(inherited)", newPath])
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                         break
@@ -737,29 +711,26 @@ public struct XcodeManager {
                     continue
                 }
                 
-                let framework_search_paths = buildSettings["FRAMEWORK_SEARCH_PATHS"]
-                let varType = framework_search_paths?.type ?? Type.unknown
+                let frameworkSearchPaths = buildSettings["FRAMEWORK_SEARCH_PATHS"]
+                let varType = frameworkSearchPaths?.type ?? Type.unknown
                 switch varType {
                 case .string:
-                    let string = framework_search_paths?.string ?? String()
-                    if (removePath == string) {
-                        var newArray = Array<String>()
-                        newArray.append("$(inherited)")
-                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                    let frameworkSearchPath = frameworkSearchPaths?.string ?? String()
+                    if (removePath == frameworkSearchPath) {
+                        buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(["$(inherited)"])
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
                     }
                     break
                 case .array:
-                    let newArray = framework_search_paths?.array ?? Array()
+                    let newArray = frameworkSearchPaths?.array ?? Array()
                     let array = newArray.filter { $0.stringValue != removePath }
                     buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(array)
                     dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
                 default:
-                    let newArray = ["$(inherited)"]
-                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                    buildSettings["FRAMEWORK_SEARCH_PATHS"] = XcodeManagerJSON(["$(inherited)"])
                     dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
@@ -794,8 +765,8 @@ public struct XcodeManager {
                 let varType = librarySearchPaths?.type ?? Type.unknown
                 switch varType {
                 case .string:
-                    let string = librarySearchPaths?.string ?? String()
-                    if (removePath == string) {
+                    let librarySearchPath = librarySearchPaths?.string ?? String()
+                    if (removePath == librarySearchPath) {
                         buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(["$(inherited)"])
                         dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                         self._cacheProjet["objects"][element.key] = dict
@@ -809,8 +780,7 @@ public struct XcodeManager {
                     self._cacheProjet["objects"][element.key] = dict
                     break
                 default:
-                    let newArray = ["$(inherited)"]
-                    buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(newArray)
+                    buildSettings["LIBRARY_SEARCH_PATHS"] = XcodeManagerJSON(["$(inherited)"])
                     dict["buildSettings"] = XcodeManagerJSON(buildSettings)
                     self._cacheProjet["objects"][element.key] = dict
                     break
@@ -894,8 +864,8 @@ public struct XcodeManager {
         }
         
         let rootObj = objects[self._rootObjectUUID]?.dictionary ?? Dictionary<String, XcodeManagerJSON>()
-        var attributes = rootObj["attributes"]?.dictionary ?? Dictionary<String, XcodeManagerJSON>()
-        var targetAttributes = attributes["TargetAttributes"]?.dictionary ?? Dictionary<String, XcodeManagerJSON>()
+        let attributes = rootObj["attributes"]?.dictionary ?? Dictionary<String, XcodeManagerJSON>()
+        let targetAttributes = attributes["TargetAttributes"]?.dictionary ?? Dictionary<String, XcodeManagerJSON>()
         var newTargetAttributes = Dictionary<String, XcodeManagerJSON>()
         
         for attribute in targetAttributes {

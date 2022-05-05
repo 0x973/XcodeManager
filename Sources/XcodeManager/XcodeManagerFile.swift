@@ -1,6 +1,6 @@
 //  XcodeManagerFile.swift
 //
-//  Copyright (c) 2018, ShouDong Zheng
+//  Copyright (c) 2018, Shoudong Zheng
 //  All rights reserved.
 
 //  Redistribution and use in source and binary forms, with or without

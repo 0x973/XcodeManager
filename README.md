@@ -1,6 +1,6 @@
 # XcodeManager
 
-[![Travis CI](https://travis-ci.org/ZhengShouDong/XcodeManager.svg?branch=master)](https://travis-ci.org/ZhengShouDong/XcodeManager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-00D835.svg?style=flat)](https://github.com/Carthage/Carthage) [![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/ZhengShouDong/XcodeManager)
+[![Build Status](https://app.travis-ci.com/X-0x01/XcodeManager.svg?branch=master)](https://app.travis-ci.com/X-0x01/XcodeManager) [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-00D835.svg?style=flat)](https://github.com/Carthage/Carthage) [![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/X-0x01/XcodeManager)
 
 The better way to manage the Xcode project file (project.pbxproj) in swift.
 This swift module lets you automate the modification process.
@@ -14,13 +14,13 @@ This swift module lets you automate the modification process.
 
 #### Swift Package Manager
 ```swift
-.package(url: "https://github.com/ZhengShouDong/XcodeManager.git", from: "0.2.0")
+.package(url: "https://github.com/X-0x01/XcodeManager.git", from: "0.2.0")
 ```
 
 #### Carthage
 You can use [Carthage](https://github.com/Carthage/Carthage) to install `XcodeManager` by adding it to your Cartfile:
 ```
-github "ZhengShouDong/XcodeManager" ~> 0.2.0
+github "X-0x01/XcodeManager" ~> 0.2.0
 ```
 
 ## Usage
@@ -69,7 +69,7 @@ project.setProductName("TestProduct")
 7. How to modify the Bundle Identifier?
 
 ```swift
-project.setBundleId("cn.zhengshoudong.TestProduct")
+project.setBundleId("cn.x0x01.TestProduct")
 ```
 
 8. How to add new <Library Search Paths> value?

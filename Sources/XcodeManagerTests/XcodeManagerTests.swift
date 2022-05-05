@@ -1,6 +1,6 @@
 //  XcodeManagerTests.swift
 //
-//  Copyright (c) 2018, ShouDong Zheng
+//  Copyright (c) 2018, Shoudong Zheng
 //  All rights reserved.
 
 //  Redistribution and use in source and binary forms, with or without
@@ -66,10 +66,10 @@ class XcodeManagerTests: XCTestCase {
     // test BundleId get and set. finally, will reset
     func testBundleId() {
         let bundleId = _project!.getBundleId()
-        XCTAssertEqual(bundleId, "cn.zhengshoudong.iOSTestProject")
+        XCTAssertEqual(bundleId, "cn.x0x01.iOSTestProject")
         
-        _project!.setBundleId("cn.zhengshoudong.xxxx")
-        XCTAssertEqual(_project!.getBundleId(), "cn.zhengshoudong.xxxx")
+        _project!.setBundleId("cn.x0x01.xxxx")
+        XCTAssertEqual(_project!.getBundleId(), "cn.x0x01.xxxx")
         
         _project!.setBundleId(bundleId)
     }
