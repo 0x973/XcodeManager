@@ -1,8 +1,0 @@
-{
-  "os": "osx",
-  "script": [
-    "swift build -c release"
-  ],
-  "language": "swift",
-  "osx_image": "xcode9.3"
-}
