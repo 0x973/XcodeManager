@@ -1,6 +1,8 @@
 # XcodeManager
 
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-00D835.svg?style=flat)](https://github.com/Carthage/Carthage) [![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/X-0x01/XcodeManager)
+![Build Status](https://github.com/X-0x01/XcodeManager/actions/workflows/swift.yml/badge.svg?branch=master)
+[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-00D835.svg?style=flat)](https://github.com/Carthage/Carthage)
+[![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/X-0x01/XcodeManager)
 
 The better way to manage the Xcode project file (project.pbxproj) in swift.
 This swift module lets you automate the modification process.
