@@ -53,17 +53,16 @@ internal struct XcodeManagerFile {
         }
         
         let fileURL = URL(fileURLWithPath: path)
-        
         let filePathExtension = fileURL.pathExtension
         if (!fileURL.isFileURL || filePathExtension.isEmpty) {
             return defaultFileType
         }
         
         let type = XcodeManagerFile.fileTypeDict[filePathExtension] ?? String()
-        if !type.isEmpty {
-            return type
+        if type.isEmpty {
+            return defaultFileType
         }
         
-        return "unknown"
+        return type
     }
 }
