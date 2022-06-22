@@ -1,8 +1,8 @@
 # XcodeManager
 
-![Build Status](https://github.com/X-0x01/XcodeManager/actions/workflows/swift.yml/badge.svg?branch=master)
+![Build Status](https://github.com/0x973/XcodeManager/actions/workflows/swift.yml/badge.svg?branch=master)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-00D835.svg?style=flat)](https://github.com/Carthage/Carthage)
-[![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/X-0x01/XcodeManager)
+[![Platform](https://img.shields.io/badge/Platform-OSX-green.svg)](https://github.com/0x973/XcodeManager)
 
 The better way to manage the Xcode project file (project.pbxproj) in swift.
 This swift module lets you automate the modification process.
@@ -16,13 +16,13 @@ This swift module lets you automate the modification process.
 
 #### Swift Package Manager
 ```swift
-.package(url: "https://github.com/X-0x01/XcodeManager.git", from: "0.2.0")
+.package(url: "https://github.com/0x973/XcodeManager.git", from: "0.2.0")
 ```
 
 #### Carthage
 You can use [Carthage](https://github.com/Carthage/Carthage) to install `XcodeManager` by adding it to your Cartfile:
 ```
-github "X-0x01/XcodeManager" ~> 0.2.0
+github "0x973/XcodeManager" ~> 0.2.0
 ```
 
 ## Usage
